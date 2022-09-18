@@ -16,12 +16,12 @@ Compile:
 /MGPT/src$ make
 ```
 
-Run: in the parent directory
+Run: 
 
 ```
 /MGPT$ ./mgpt
 ```
-This will compute the LCDM power spectra and correlation functions.
+This will compute the LCDM redshift space multipoles of the power spectrum
 
 For help:
 
