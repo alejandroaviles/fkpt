@@ -20,7 +20,7 @@ string defv[] = {  ";"HEAD1": " HEAD2 "\n\t " HEAD3,
     "paramfile=",                   ";Parameter input file. Overwritten by what follows",
 //
 // Power spectrum table:
-    "fnamePS=pklin_F5z045.dat",    ";Input filename power spectrum table (k,P(k)). (At redshift zout)",
+    "fnamePS=pkl_z05.dat",    ";Input filename power spectrum table (k,P(k)). (At redshift zout)",
     "zout=0.5",                         ";Output redshift value",":z",
     //~ "Om=0.281",                     ";Omega matter value (z=0)",":OmegaM",
     "Om=0.317501",                     ";Omega matter value (z=0)",":OmegaM",
