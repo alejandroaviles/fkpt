@@ -1,5 +1,5 @@
 # fkpt
-Perturbation theory for Modified Theory using "fk"-Kernels
+Perturbation theory for Modified Gravity Theory using "fk"-Kernels
 
 
 Alejandro Aviles (Conacyt/ININ, Mexico),
