@@ -42,6 +42,8 @@ computes Hu-Sawicky f_R0 = -10^-6 with background cosmology h=0.7, Omega_m = 0.3
 
 The fkpt theory is based on 
 
+https://arxiv.org/abs/2012.05077
+
 https://arxiv.org/abs/2208.02791
 
 
