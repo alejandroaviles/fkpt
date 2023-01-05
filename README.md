@@ -50,6 +50,6 @@ https://arxiv.org/abs/2012.05077
 
 https://arxiv.org/abs/2208.02791
 
-Please cite those papers, mainly the first one, if you use this code for you research.
+Please cite these papers, at least the first one, if you use this code for you research.
 
 
