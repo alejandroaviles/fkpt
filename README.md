@@ -36,7 +36,9 @@ In help you can see how to change parameters, in the form [option]=[value], for 
 /fkpt$ ./fkpt om=0.3 h=0.7 mgm=HS fR0=1.0e-6 suffix=_F6z05 zout=0.5 fnamePS=pklin.dat
 ```
 
-computes Hu-Sawicky f_R0 = -10^-6 with background cosmology h=0.7, Omega_m = 0.3, at z=0.5, for the input real space linear power spectrum pklin.dat. The output files will have a suffix _F6z05. The input linear power spectrum should be the LCDM one and given in a two column (k,pkl) file in Mpc/h units at the desire output redshift.
+computes Hu-Sawicky f_R0 = -10^-6 with background cosmology h=0.7, Omega_m = 0.3, at z=0.5, for the input real space linear power spectrum pklin.dat. The output files will have a suffix _F6z05. 
+
+The input linear power spectrum should be the LCDM one and given in a two column (k,pkl) file in Mpc/h units at the desire output redshift.
 
 HS is the only model implemented so far. It is straightforward to do it for other MG models, hope I can find the time to do it soon. Contact me if you have questions about how to do it.
 
