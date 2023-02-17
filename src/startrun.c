@@ -30,9 +30,9 @@ void StartRun(string head0, string head1, string head2, string head3)
     gd.headline2 = head2; gd.headline3 = head3;
     //~ printf("\n%s\n%s: %s\n\t %s\n",
 		//~ gd.headline0, gd.headline1, gd.headline2, gd.headline3);
-    printf("\n \t\t Gaussian streaming model code for the redshift space 2PCF \n\n");
+    printf("\n \t\t fkpt - compute power spectrum in modified gravity models \n\n");
 		//~ gd.headline0, gd.headline1, gd.headline2, gd.headline3);
-    cmd.paramfile = GetParam("paramfile");
+    cmd.paramfile = GetParam("pardamfile");
     if (!strnull(cmd.paramfile))
 		startrun_parameterfile();
 	else
