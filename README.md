@@ -16,6 +16,11 @@ avilescervantes@gmail.com
 #
 
 
+
+HS is the only model implemented so far. It is straightforward to do it for other MG models, hope I can find the time to do it soon. Contact me if you have questions about how to do it.
+
+
+
 ## Instructions for C
 
 First use git clone:
@@ -64,8 +69,6 @@ The code employs the standard libraries:
 
 Once compiled with everything ready, check the [Jupyter Notebook](https://github.com/alejandroaviles/fkpt/blob/main/Python/run_fkpt.ipynb) which contain a helpful example. 
 
-
-HS is the only model implemented so far. It is straightforward to do it for other MG models, hope I can find the time to do it soon. Contact me if you have questions about how to do it.
 
 ## References
 
