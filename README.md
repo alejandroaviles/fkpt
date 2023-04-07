@@ -17,7 +17,7 @@ avilescervantes@gmail.com
 
 
 
-HS is the only model implemented so far. It is straightforward to do it for other MG models, hope I can find the time to do it soon. Contact me if you have questions about how to do it.
+HS is the only modified gravity model implemented so far. It is straightforward to do it for other models, hope I can find the time to do it soon. Contact me if you have questions about how to do it.
 
 
 
@@ -67,7 +67,7 @@ The code employs the standard libraries:
 - NumPy 
 - SciPy
 
-Once compiled with everything ready, check the [Jupyter Notebook](https://github.com/alejandroaviles/fkpt/blob/main/Python/run_fkpt.ipynb) which contain a helpful example. 
+Once compiled with everything ready, check the [Jupyter Notebook](https://github.com/alejandroaviles/fkpt/blob/main/Python/run_fkpt.ipynb) which contains a helpful example. 
 
 
 ## References
