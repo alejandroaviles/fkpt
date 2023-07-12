@@ -11,13 +11,11 @@ avilescervantes@gmail.com
 
 **Other people who contributed to this code**:
 - Mario A. Rodriguez-Meza
+
+Special thanks to Sebastien Fromenteau and [Hernán E. Noriega](https://github.com/henoriega) for constructing the Python interface.
 #
 
-We thank Sebastien Fromenteau and [Hernán E. Noriega](https://github.com/henoriega) for constructing the Python interface.
-
-
-
-HS is the only modified gravity model implemented so far. It is straightforward to do it for other models, hope I can find the time to do it soon. Contact me if you have questions about how to do it.
+Hu-Sawicky f(R) is the only modified gravity model implemented so far. It is straightforward to do it for other models, hope I can find the time to do it soon. Contact me if you have questions about how to do it.
 
 
 
