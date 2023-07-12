@@ -10,10 +10,10 @@ Alejandro Aviles (Conacyt/ININ, Mexico),
 avilescervantes@gmail.com
 
 **Other people who contributed to this code**:
-- [Hernán E. Noriega](https://github.com/henoriega)
 - Mario A. Rodriguez-Meza
-- Sebastien Fromenteau
 #
+
+We thank Sebastien Fromenteau and [Hernán E. Noriega](https://github.com/henoriega) for constructing the Python interface.
 
 
 
