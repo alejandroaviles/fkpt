@@ -17,6 +17,8 @@ Special thanks to Sebastien Fromenteau and [Hernán E. Noriega](https://github.c
 
 Hu-Sawicky f(R) is the only modified gravity model implemented so far. It is straightforward to do it for other models, hope I can find the time to do it soon. Contact me if you have questions about how to do it.
 
+If you run the LCDM model, it will use the exact time dependence for the kernels. 
+
 
 
 ## Instructions for C
