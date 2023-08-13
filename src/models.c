@@ -405,7 +405,7 @@ local real mass_HS(real eta)
 {
     real masstmp;
     
-    masstmp = (1.0/invH0)*rsqrt(1.0/(2.0*cmd.fR0))
+    masstmp = (1.0/invH0)*rsqrt(1.0/(2.0*rabs(cmd.fR0)))
                 * rpow(cmd.om*rexp(-3.0*eta) + 4.0*(gd.ol),(2.0+cmd.nHS)/2.0)
                 / rpow(cmd.om+4.0*(gd.ol),(1.0+cmd.nHS)/2.0);
 
@@ -439,7 +439,7 @@ local real M2_HS(real eta)
     real M2tmp;
 
     M2tmp = cmd.screening;
-    M2tmp *= (9.0/(4.0*rsqr(invH0)))*rsqr(1.0/cmd.fR0)
+    M2tmp *= (9.0/(4.0*rsqr(invH0)))*rsqr(1.0/rabs(cmd.fR0))
     * rpow(cmd.om*rexp(-3.0*eta)+4.0*(gd.ol),5.0)
     / rpow(cmd.om+4*(gd.ol),4.0);
     
@@ -529,7 +529,7 @@ local real M3_HS(real eta)
     real M3tmp;
 
     M3tmp = cmd.screening;
-    M3tmp *= (45.0/(8.0*rsqr(invH0)))*rpow(1.0/cmd.fR0,3.0)
+    M3tmp *= (45.0/(8.0*rsqr(invH0)))*rpow(1.0/rabs(cmd.fR0),3.0)
     * rpow(cmd.om*rexp(-3.0*eta)+4.0*(gd.ol),7.0)
     / rpow(cmd.om+4*(gd.ol),6.0);
     
@@ -1571,7 +1571,7 @@ local real mass_LCDM(real eta)
 {
     real masstmp;
     
-    masstmp = (1.0/invH0)*rsqrt(1.0/(2.0*cmd.fR0))
+    masstmp = (1.0/invH0)*rsqrt(1.0/(2.0*rabs(cmd.fR0)))
     * rpow(cmd.om*rexp(-3.0*eta) + 4.0*(gd.ol),(2.0+cmd.nHS)/2.0)
     / rpow(cmd.om+4.0*(gd.ol),(1.0+cmd.nHS)/2.0);
     
@@ -1603,7 +1603,7 @@ local real M2_LCDM(real eta)
 {
     real M2tmp;
     
-    M2tmp = (9.0/(4.0*rsqr(invH0)))*rsqr(1.0/cmd.fR0)
+    M2tmp = (9.0/(4.0*rsqr(invH0)))*rsqr(1.0/rabs(cmd.fR0))
     * rpow(cmd.om*rexp(-3.0*eta)+4.0*(gd.ol),5.0)
     / rpow(cmd.om+4*(gd.ol),4.0);
     
@@ -1692,7 +1692,7 @@ local real M3_LCDM(real eta)
 {
     real M3tmp;
     
-    M3tmp = (45.0/(8.0*rsqr(invH0)))*rpow(1.0/cmd.fR0,3.0)
+    M3tmp = (45.0/(8.0*rsqr(invH0)))*rpow(1.0/rabs(cmd.fR0),3.0)
     * rpow(cmd.om*rexp(-3.0*eta)+4.0*(gd.ol),7.0)
     / rpow(cmd.om+4*(gd.ol),6.0);
     
