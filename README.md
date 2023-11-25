@@ -4,15 +4,13 @@ Perturbation theory for LCDM and Modified Gravity theories using "fk"-Kernels.
 fkpt is a code that computes the 1-loop redshift space power spectrum for tracers. 
 
 
-## Author: 
+## Authors: 
 
-Alejandro Aviles (Conacyt/ININ, Mexico),
-avilescervantes@gmail.com
+- Alejandro Aviles (ICF-UNAM, Mexico), avilescervantes@gmail.com
+- Mario A. Rodriguez-Meza (ININ, Mexico)
 
-**Other people who contributed to this code**:
-- Mario A. Rodriguez-Meza
 
-Special thanks to Sebastien Fromenteau and [Hernán E. Noriega](https://github.com/henoriega) for constructing the Python interface.
+Special thanks to Sebastien Fromenteau and [Hernán E. Noriega](https://github.com/henoriega) for helping with the Python interface.
 #
 
 Hu-Sawicky f(R) is the only modified gravity model implemented so far. It is straightforward to do it for other models, hope I can find the time to do it soon. Contact me if you have questions about how to do it.
