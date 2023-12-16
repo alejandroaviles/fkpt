@@ -62,8 +62,9 @@ The input linear power spectrum should be the LCDM one and given in a two column
 **Dependences**
 
 The code employs the standard libraries:
-- NumPy 
-- SciPy
+- **[NumPy](https://numpy.org/)**
+- **[SciPy](https://scipy.org/)**
+
 
 Once compiled with everything ready, check the [Jupyter Notebook](https://github.com/alejandroaviles/fkpt/blob/main/Python/run_fkpt.ipynb) which contains a helpful example. 
 
