@@ -68,6 +68,8 @@ The code employs the standard libraries:
 
 Once compiled with everything ready, check the [Jupyter Notebook](https://github.com/alejandroaviles/fkpt/blob/main/Python/run_fkpt.ipynb) which contains a helpful example. 
 
+AP is implemented for Python only
+
 
 ## References
 
