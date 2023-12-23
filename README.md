@@ -71,12 +71,9 @@ Once compiled with everything ready, check the [Jupyter Notebook](https://github
 
 ## References
 
-The fkpt theory is based on: 
+Please cite https://arxiv.org/abs/2312.10510 if you use this code for you research. 
 
-https://arxiv.org/abs/2012.05077
 
-https://arxiv.org/abs/2208.02791
 
-Please cite these papers, at least the first one, if you use this code for you research.
 
 
