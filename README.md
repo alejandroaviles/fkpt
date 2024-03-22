@@ -7,7 +7,7 @@ fkpt is a code that computes the 1-loop redshift space power spectrum for tracer
 ## Authors: 
 
 - Alejandro Aviles (ICF-UNAM, Mexico), avilescervantes@gmail.com
-- Mario A. Rodriguez-Meza (ININ, Mexico), marioalberto.rodriguez@gmail.com
+- Mario A. Rodriguez-Meza (ININ, Mexico), marioalberto.rodriguezmeza@gmail.com
 
 
 Special thanks to Sebastien Fromenteau and [Hernán E. Noriega](https://github.com/henoriega) for helping with the Python interface.
