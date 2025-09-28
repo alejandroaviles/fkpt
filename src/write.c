@@ -26,7 +26,7 @@ global void write(void){
 	    fprintf(stdout,"f_LCDM = %g   \n",f_growth_LCDM());    
 	    // fprintf(stdout,"2*sigma_psi = %g  Mpc/h (Lagrangian particles mean displacement)\n",
 							// gd.particles_meanPath); 
-		fprintf(stdout,"\nsigma8(z=%g)=%g \n",cmd.xstop,gd.sigma8);  
+		fprintf(stdout,"sigma8(z=%g)=%g \n",cmd.xstop,gd.sigma8);  
 	};
 	
 	print_linear();
