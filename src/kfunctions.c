@@ -28,7 +28,7 @@ local real sigma2v_function_int(real y);
 local real sigma_constants(void);
 
 #define KMIN    1.0e-20
-#define _KERNELS_LCDMfk_ 1
+#define _KERNELS_LCDMfk_ 0
 
 global void compute_kfunctions(void)
 {
@@ -45,21 +45,21 @@ global void compute_kfunctions(void)
 
     bTime = second();
  
-    gd.f0=f_growth_LCDM();  //Modificacion-LCDMfk
+    // gd.f0=f_growth_LCDM();  //Modificacion
     
     ptmp = DsSecondOrder_func(KMIN, KMIN, KMIN);
     KA_LCDM = DA2D2(ptmp) / ( (3.0/7.0) * Dpk1D2(ptmp) * Dpk2D2(ptmp) );
     KAp_LCDM = DA2primeD2(ptmp) 
                 / ( (3.0/7.0) * Dpk1D2(ptmp) * Dpk2D2(ptmp) ) -
                2.0 * DA2D2(ptmp) 
-                / ( (3.0/7.0) * Dpk1D2(ptmp) * Dpk2D2(ptmp) )* gd.f0; //Modificacion-LCDMfk
+                / ( (3.0/7.0) * Dpk1D2(ptmp) * Dpk2D2(ptmp) )* gd.f0;
     KB_LCDM = KA_LCDM;
 
     ptmpR1 = DsThirdOrder_func(0.0000001, KMIN, KMIN);   
     KR1_LCDM = (21.0/5.0)*D3symmD3(ptmpR1)
         /( DpkD3(ptmpR1)*DppD3(ptmpR1)*DppD3(ptmpR1) );     
     KR1p_LCDM = (21.0/5.0)*D3symmprimeD3(ptmpR1)
-        /( DpkD3(ptmpR1)*DppD3(ptmpR1)*DppD3(ptmpR1) )/(3.*gd.f0);   //Modificacion-LCDMfk     
+        /( DpkD3(ptmpR1)*DppD3(ptmpR1)*DppD3(ptmpR1) )/(3.*gd.f0);       
 
 	get_sigma8();
 	if(cmd.chatty==3) fprintf(stdout,"%g\n",gd.sigma8);
@@ -70,22 +70,21 @@ global void compute_kfunctions(void)
     if(cmd.chatty==1){    
 		fprintf(stdout,"\nA_LCDM=%g, Ap_LCDM=%g, KR1_LCDM = %g, KR1p_LCDM = %g"
 					,KA_LCDM, KAp_LCDM, KR1_LCDM, KR1p_LCDM);
-        fprintf(stdout,"\nsigma quadratures from kmin = %g to kmax = %g", kPS[1],kPS[nPSLT]);
+        // fprintf(stdout,"\nsigma quadratures from kmin = %g to kmax = %g", kPS[1],kPS[nPSLT]);
 		fprintf(stdout,"\ns2psi = %g,   s2v = %g,   Sigma2 = %g,   deltaSigma2 = %g",
 			gd.sigma2L, gd.sigma2v, gd.Sigma2, gd.deltaSigma2);
-			//~ gd.Sigma2=33.4765970542241;
-			//~ gd.deltaSigma2 = 8.084891440805126;
 			
 		fprintf(stdout,"\nk-functions:");
 		fprintf(stdout," Nk=%d values from kmin=%g to kmax=%g ",
-            cmd.Nk, cmd.kmin, cmd.kmax);
+            cmd.Nk, cmd.kmin, cmd.kmax);   		
+        // fprintf(stdout,"\nf_LCDM=%g",f_growth_LCDM());
 		//~ fprintf(stdout,"\nsigma8(z=%g)=%g \n",cmd.xstop,gd.sigma8);   
     }; 
 
     k_functions();
     
     
-    if(cmd.chatty==1) fprintf(stdout,"...time = %g seconds",second()-bTime);    
+    if(cmd.chatty==1) fprintf(stdout,"\n...time = %g seconds",second()-bTime);    
 
 }
 #undef KMIN

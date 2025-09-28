@@ -97,6 +97,7 @@ typedef struct {
 
 // k table
     string fnamePS;
+    int is_PS_input_LCDM;
     real kmin;
     real kmax;
     int Nk;

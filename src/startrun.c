@@ -125,6 +125,7 @@ stream outparams;
 //
 // Power spectrum table:
     cmd.fnamePS = GetParam("fnamePS");
+    cmd.is_PS_input_LCDM = GetiParam("is_PS_input_LCDM");    
     cmd.kmin = GetdParam("kmin");
     cmd.kmax = GetdParam("kmax");
     cmd.Nk = GetiParam("Nk");
@@ -156,16 +157,12 @@ stream outparams;
     cmd.postprocessing = FALSE;
     cmd.options = "";
 
-    
-    //sprintf(gd.fpfnameParams,"Output/params%s.dat",cmd.suffixModel);       
-    //outparams = stropen(gd.fpfnameParams,"w!");
-    //fprintf(outparams,  "Reading pkl from file %s in the form column1: k[h/Mpc],  2: pkl[Mpc/h]^3  \n\n", cmd.fnamePS);
-    //fclose(outparams);   
+
     
     if(cmd.chatty==1){ 
 		printf("\n \t\t fkpt - compute power spectrum in modified gravity models \n\n");
 		
-		fprintf(stdout,"Reading pkl from file %s in the form column1: k[h/Mpc], 2: pkl[Mpc/h]^3 \n\n", cmd.fnamePS); 
+		fprintf(stdout,"Reading pkl from file %s in the form column1: k[h/Mpc], 2: pkl[Mpc/h]^3 \n", cmd.fnamePS);
 		fprintf(stdout,"redshift: z=%g\n",    cmd.xstop); 
 		fprintf(stdout,"OmegaM=%g\n",         cmd.om); 
 		fprintf(stdout,"h=%g\n",              cmd.h); 
@@ -306,6 +303,8 @@ local void startrun_ParamStat(void)
 // Power spectrum table:
     if (GetParamStat("fnamePS") & ARGPARAM)
         cmd.fnamePS = GetParam("fnamePS");
+    if (GetParamStat("is_PS_input_LCDM") & ARGPARAM)
+        cmd.is_PS_input_LCDM = GetiParam("is_PS_input_LCDM");
     if (GetParamStat("kmin") & ARGPARAM)
         cmd.kmin = GetdParam("kmin");
     if (GetParamStat("kmax") & ARGPARAM)
@@ -431,6 +430,7 @@ local void ReadParameterFile(char *fname)
 
   nt=0;
     SPName(cmd.fnamePS,"fnamePS",100);
+    IPName(cmd.is_PS_input_LCDM,"is_PS_input_LCDM");	
     RPName(cmd.xstop,"zout");     
     RPName(cmd.om,"Om");
     RPName(cmd.h,"h"); 
@@ -860,11 +860,11 @@ local void PSLTable(void)
 
     xstoptmp = gd.xstop;
     gd.xstop = 0.;
-//    Dp0 = DpFunction(0.); // LCDM
+
     Dp0 = DpFunction_LCDM(0.); // LCDM
     fprintf(gd.outlog,"\n\n Dp(0) = %g",Dp0);
     gd.xstop = xstoptmp;
-    Dpzout = DpFunction(0.);
+    Dpzout = DpFunction(0.); // aa: This was for rescale the input pk redshift, but I removed it
     fprintf(gd.outlog,"\n Dp(%g) = %g\n",cmd.xstop,Dpzout);
      
     //~ fprintf(stdout,"\nzout  = %g", cmd.xstop);
@@ -872,8 +872,9 @@ local void PSLTable(void)
     //~ fprintf(stdout,"\nDplus= %g\n\n", gd.Dplus);//Dpzout/Dp0);
     
     
-    if (rescalePS !=0){
+    if (rescalePS !=0){  // aa: This was for rescale the input pk redshift, but I removed it
 		fac = rsqr(Dpzout/Dp0);
+        fprintf(stdout,"Warning: rescaling the redshift with rsqr(Dpzout/Dp0) = %g", fac);
 		for (p = PSLCDMtab; p<PSLCDMtab+nPSTable; p++) {
 			PS(p) *= fac;
 		}
@@ -887,7 +888,6 @@ local void PSLTable(void)
     }
     fclose(outstr);
 
-//
     kmin = kPos(PSLCDMtab);
     Dpkmin = DpFunction(kmin);
     fprintf(gd.outlog,"\n\n Dpkmin = %g\n",Dpkmin);
@@ -895,12 +895,18 @@ local void PSLTable(void)
     PSLT = (pointPSTableptr) allocate(nPSTable * sizeof(pointPSTable));
     nPSLT = 0;
     pn = PSLT;
-    for (p = PSLCDMtab; p<PSLCDMtab+nPSTable; p++) {
-        kPos(pn) = kPos(p);
-        Dpk = DpFunction(kPos(p));
-        PS(pn) = rsqr(Dpk/Dpkmin)*PS(p);
-        pn++;
-        nPSLT++;
+    if (cmd.is_PS_input_LCDM==1) {
+        printf("\nRescaling input power spectrum from LCDM to MG. Change to is_PS_input_LCDM=0 if dont want to\n");
+        for (p = PSLCDMtab; p<PSLCDMtab+nPSTable; p++) {
+            kPos(pn) = kPos(p);
+            Dpk = DpFunction(kPos(p));
+            kPos(pn) = kPos(p);
+            Dpk = DpFunction(kPos(p)); 
+            // printf("%g ", rsqr(Dpk/Dpkmin));
+            PS(pn) = rsqr(Dpk/Dpkmin)*PS(p);
+            pn++;
+            nPSLT++;
+        }
     }
 
     kPS = dvector(1,nPSLT);
@@ -924,6 +930,8 @@ local void PSLTable(void)
         fkT[i] = f_growth(kPS[i]);
         DplusT[i] = DpFunction(kPS[i]);
     } 
+
+    gd.f0=fkT[1];
 
    
     spline(kPS,pPS,nPSLT,1.0e30,1.0e30,pPS2);
