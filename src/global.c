@@ -3,8 +3,17 @@
  Alejandro Aviles (avilescervantes@gmail.com), ...
  ================================================================================ 
 */
+
+/* src/global.c */
+#define global
+#include "clpt_types.h"   // brings full definitions
 #include "globaldefs.h"
+#include "models.h"
 #include "protodefs.h"
+
+q_arrays  qArrays  = {0};
+q_arraysd qArraysd = {0};
+r_arrays  rArrays  = {0};
 
 void global_variables(void){
 

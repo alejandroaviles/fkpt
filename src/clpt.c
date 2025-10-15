@@ -20,8 +20,10 @@
  ================================================================================ 
 */
 
+#include "globaldefs.h"
+#include "clpt_types.h"   // must contain full struct definitions of r_arrays/q_arrays
+#include "protodefs.h"    // must define macros like rzacorrfun(a) ((a)->r)
 #include "clpt.h"
-
 
 #define CLPT_OUT_FMT    \
 "%e %e %e %e %e %e %e %e \
@@ -59,7 +61,7 @@ global void compute_clpt(void)
 
     
     f = f_growth_LCDM(); 
-    gd.f=f;
+    //gd.f=f;
     f2=f*f;   
     
     fprintf(stdout," Nr=%d values from rmin=%g to rmax=%g ", Nr, rmin, rmax);

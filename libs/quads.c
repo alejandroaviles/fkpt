@@ -370,7 +370,7 @@ void locate(double xx[], unsigned long n, double x, unsigned long *j)
     ascnd=(xx[n] >= xx[1]);
     while (ju-jl > 1) {
         jm=(ju+jl) >> 1;
-        if (x >= xx[jm] == ascnd)
+        if ((x >= xx[jm]) == ascnd)
             jl=jm;
         else
             ju=jm;

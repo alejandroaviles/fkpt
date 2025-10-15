@@ -1,6 +1,4 @@
 # fkpt
-To be modified...
-
 Perturbation theory for LCDM and Modified Gravity theories using "fk"-Kernels.
 
 fkpt is a code that computes the 1-loop redshift space power spectrum for tracers. 
@@ -57,7 +55,7 @@ In help you can see how to change parameters, in the form [option]=[value], for 
 
 computes Hu-Sawicky f_R0 = -10^-6 with background cosmology h=0.7, Omega_m = 0.3, at z=0.5, for the input real space linear power spectrum pklin.dat. The output files will have a suffix _F6z05. 
 
-The input linear power spectrum should be the LCDM one and given in a two column (k,pkl) file in Mpc/h units at the desire output redshift, the code with transform it to the MG one. I you want to provide your own MG linear power spectrum input set is_PS_input_LCDM=0
+The input linear power spectrum should be the LCDM one and given in a two column (k,pkl) file in Mpc/h units at the desire output redshift.
 
 ## Instructions for Python
 

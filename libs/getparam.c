@@ -6,46 +6,96 @@ Note: modified version of the zeno version
 #include "stdinc.h"
 #include "getparam.h"
 #include <string.h>
+#include <stdio.h>
+#include <errno.h>
 
+/* ---- define 'param' BEFORE any function that uses it ---- */
 typedef struct {
     string name;
-	string name_alias;
+    string name_alias;
     string value;
     string comment;
-    int flags;
+    int    flags;
 } param;
 
-local int CountDefaults(string *);
-local void SetProgram(param *, string);
-local void CopyDefaults(param *, string *);
-local void CheckHelp(param *, string);
-local void PrintHeader(string, string);
-local void PrintItem(string, string, string);
-local void SetArguments(param *, string *);
-local void ReqArguments(param *);
+/* forward decls that use 'param' */
+local int    CountDefaults(string *);
+local void   SetProgram(param *, string);
+local void   CopyDefaults(param *, string *);
+local void   CheckHelp(param *, string);
+local void   PrintHeader(string, string);
+local void   PrintItem(string, string, string);
+local void   SetArguments(param *, string *);
+local void   ReqArguments(param *);
 local param *FindParam(string, param *);
 local string ParName(string);
+local string ParValue(string);
 
-local string ParValue(string);                  
+/* module state */
+local param  *paramvec = NULL;
+local string  progname = NULL;
 
-local param *paramvec = NULL;                   
+/* --- debug helpers --- */
+static void dump_vec(const char *tag, char **vec) {
+    fprintf(stderr, "[getparam] %s:\n", tag);
+    if (!vec) { fprintf(stderr, "  (null)\n"); return; }
+    for (int i = 0; vec[i]; ++i) fprintf(stderr, "  [%d] '%s'\n", i, vec[i]);
+    fflush(stderr);
+}
 
-local string progname = NULL;                   
+static void dump_known_params(param *pvec) {
+    fprintf(stderr, "[getparam] known params:\n");
+    if (!pvec) { fprintf(stderr, "  (null)\n"); return; }
+    for (param *q = pvec; q->name != NULL; ++q) {
+        fprintf(stderr, "  - %s (flags=0x%x) val=%s\n",
+                q->name, q->flags, q->value ? q->value : "(null)");
+    }
+    fflush(stderr);
+}                 
 
 void InitParam(string *argv, string *defv)
 {
     int nparam;
     param *pvec;
 
-    progname = argv[0];                         
+    fprintf(stderr, "[getparam] InitParam: ENTER (errno=%d)\n", errno);
+    dump_vec("argv", (char**)argv);
+    dump_vec("defv", (char**)defv);
+
+    if (!argv || !argv[0]){
+        fprintf(stderr, "[getparam] ERROR: argv or argv[0] is NULL\n");
+        fflush(stderr);
+        return; /* or abort(); */
+    }
+
+    progname = argv[0];
+    fprintf(stderr, "[getparam] progname='%s'\n", progname);
+
     nparam = 1 + CountDefaults(defv);
+    fprintf(stderr, "[getparam] nparam=%d\n", nparam);
+
     pvec = (param *) allocate(sizeof(param) * (nparam + 1));
-    SetProgram(pvec, argv[0]);                  
-    CopyDefaults(pvec, defv);                   
-    CheckHelp(pvec, argv[1]);
+    fprintf(stderr, "[getparam] pvec=%p\n", (void*)pvec);
+
+    SetProgram(pvec, argv[0]);
+    CopyDefaults(pvec, defv);
+
+    if (argv[1]){
+        fprintf(stderr, "[getparam] CheckHelp with argv[1]='%s'\n", argv[1]);
+        CheckHelp(pvec, argv[1]);
+    } else {
+        fprintf(stderr, "[getparam] skipping CheckHelp: argv[1] is NULL\n");
+    }
+
+    fprintf(stderr, "[getparam] SetArguments...\n");
     SetArguments(pvec, argv);
+
+    fprintf(stderr, "[getparam] ReqArguments...\n");
     ReqArguments(pvec);
+
     paramvec = pvec;
+    fprintf(stderr, "[getparam] InitParam: DONE (errno=%d)\n", errno);
+    fflush(stderr);
 }
 
 local int CountDefaults(string *defv)
@@ -169,26 +219,38 @@ local void SetArguments(param *pvec, string *argv)
 
     scanpos = TRUE;
     pp = pvec;
-    for (ap = argv + 1; *ap != NULL; ap++) { 
-        name = ParName(*ap);                    
-        scanpos = scanpos && (name == NULL);    
-        if (scanpos) {                          
-            pp++;                               
-            if (pp->name == NULL)               
+    for (ap = argv + 1; *ap != NULL; ap++) {
+        name = ParName(*ap);
+        fprintf(stderr, "[getparam] token='%s' name=%s val=%s (scanpos=%d)\n",
+                *ap, name ? name : "(pos)",
+                name ? ParValue(*ap) : "(pos)",
+                (int)scanpos);
+        fflush(stderr);
+
+        scanpos = scanpos && (name == NULL);
+        if (scanpos) {
+            pp++;
+            if (pp->name == NULL){
+                fprintf(stderr, "[getparam] too many positional args; next slot is NULL\n");
                 error("%s: too many arguments\n", progname);
-            pp->value = strdup(*ap);            
-        } else {                                
-            if (name == NULL)                   
+            }
+            pp->value = strdup(*ap);
+        } else {
+            if (name == NULL){
+                fprintf(stderr, "[getparam] ERROR: nameless arg while in named-mode\n");
                 error("%s: nameless arg %s\n", progname, *ap);
-            pp = FindParam(name, pvec);         
-            if (pp == NULL)                     
-                error("%s: parameter %s unknown\n", progname, name);
-            if (pp->flags & ARGPARAM)           
-                error("%s: parameter or alias %s duplicated\n", progname, name);
-            pp->value = strdup(ParValue(*ap));  
+            }
+            pp = FindParam(name, pvec);
+            fprintf(stderr, "[getparam] FindParam('%s') -> %p\n", name, (void*)pp);
+            if (pp == NULL){
+                dump_known_params(pvec);
+                fprintf(stderr, "[getparam] errno before error() = %d\n", errno);
+                error("%s: parameter %s unknown\n", progname, name);            
+            }
+            fprintf(stderr, "[getparam] assign %s = %s\n", name, ParValue(*ap));
+            pp->value = strdup(ParValue(*ap));
         }
         pp->flags = (pp->flags & ~DEFPARAM) | ARGPARAM;
-                                                
     }
 }
 

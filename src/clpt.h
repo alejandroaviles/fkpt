@@ -1,6 +1,6 @@
 #include "globaldefs.h"
+#include "clpt_types.h"
 #include "protodefs.h"
-
 
 //~ #define KK  5
 //~ #define EPSQ 1.0e-6

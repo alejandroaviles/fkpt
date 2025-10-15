@@ -21,12 +21,11 @@ global void write(void){
 
 	if(cmd.chatty==1){
 	    fprintf(stdout,"\nz = %g\n",cmd.xstop);
-	    fprintf(stdout,"D_+ = %g\n",gd.Dplus);
-	    fprintf(stdout,"f0 = %g, ",gd.f0);    
-	    fprintf(stdout,"f_LCDM = %g   \n",f_growth_LCDM());    
-	    // fprintf(stdout,"2*sigma_psi = %g  Mpc/h (Lagrangian particles mean displacement)\n",
-							// gd.particles_meanPath); 
-		fprintf(stdout,"sigma8(z=%g)=%g \n",cmd.xstop,gd.sigma8);  
+	    fprintf(stdout,"Dplus = %g\n",gd.Dplus);
+	    fprintf(stdout,"f0 = %g\n",gd.f0);    
+	    fprintf(stdout,"2*sigma_psi = %g  Mpc/h (Lagrangian particles mean displacement)\n",
+							gd.particles_meanPath); 
+		fprintf(stdout,"\nsigma8(z=%g)=%g \n",cmd.xstop,gd.sigma8);  
 	};
 	
 	print_linear();

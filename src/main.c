@@ -7,7 +7,9 @@
  References:  arXiv:...
  ==============================================================================*/
 
+#ifndef FKPT_PYEXT   // building the CLI => own the globals
 #define global
+#endif
 
 #include "globaldefs.h"
 #include "cmdline_defs.h"

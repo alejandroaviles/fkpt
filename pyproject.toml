@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools>=69", "wheel", "numpy==1.26.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyfkpt"
+version = "0.1.0"
+description = "In-process bindings for fkpt"
+requires-python = ">=3.8"
+dependencies = ["numpy>=1.20,<2"]

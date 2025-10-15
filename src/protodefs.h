@@ -23,6 +23,10 @@ global void compute_clpt(void);
 global void compute_gsm(void);
 global void write(void);
 global void free_variables(void);
+// CGQ MOD: get growth from ISiTGR
+global void set_external_fk(int n, const double *k_in, const double *fk_in, double f0_in);
+extern real Omega_DE(real a); // another function just in case
+// CGQ MOD: get growth from ISiTGR
 
 
 //~ global void PostProcessing(void); //BORRAR;

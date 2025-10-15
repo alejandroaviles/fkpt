@@ -5,9 +5,41 @@
 //#define global
 #include "globaldefs.h"
 #include "protodefs.h"
+#include <math.h>
+#include <strings.h>
 
 // TEMPLATE FOR THE USER
 //#include "models_user.h"
+
+static const double *FK_cached   = NULL;
+static const double *KPS_cached  = NULL;
+static const double *PPS_cached  = NULL;
+static int           N_cached    = 0;
+static int kernels_ready = 0;
+
+void model_reset_all(void)
+{
+    FK_cached   = NULL;
+    KPS_cached  = NULL;
+    PPS_cached  = NULL;
+    N_cached    = 0;
+
+    kernels_ready = 0;
+
+    /* If you allocate extra arrays here in the model layer,
+       free them here too and null their pointers. */
+}
+
+/* Call this AFTER PSLTable() created kPS/pPS/fkT, and every StartRun. */
+void model_bind_globals(void)
+{
+    FK_cached   = fkT;
+    KPS_cached  = kPS;
+    PPS_cached  = pPS;
+    N_cached    = nPSLT;
+
+    kernels_ready = 0;  /* force rebuild on first use */
+}
 
 // ===========================================================================
 // MODELS SECTION 1
@@ -80,6 +112,28 @@ local real S3dI_LCDM(real eta, real x, real k, real p, real Dpk, real Dpp,
 // ==========================================
 
 
+// ==========================================
+// Begin: LCDM Model global HEADERS -> local
+local void set_Model_HDKI(void);
+local real OmM_HDKI(real eta);
+local  real H_HDKI(real eta);
+local  real f1_HDKI(real eta);
+local  real f2_HDKI(real eta);
+local  real A0_HDKI(real eta);
+local real mu_HDKI(real eta, real k);
+local real sourceA_HDKI(real eta, real kf, real k1, real k2);
+local real sourceb_HDKI(real eta, real kf, real k1, real k2);
+local real SD2_HDKI(real eta, real x, real k, real p);
+local real S3I_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp,
+                  real D2f, real D2mf);
+local real S3II_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp,
+                   real D2f, real D2mf);
+local real S3FL_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp, real D2f, real D2mf);
+local real S3dI_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp,
+                   real D2f, real D2mf);
+// End: LCDM Model global HEADERS
+// ==========================================    
+
 // ===========================================================================
 // MODELS SECTION 2
 // ===========================================================================
@@ -88,6 +142,7 @@ local void model_string_to_int(string, int *);
 
 #define HS                          0
 #define DGP                         3
+#define HDKI                        4
 
 global void set_model(void)
 {
@@ -95,12 +150,15 @@ global void set_model(void)
     
     model_string_to_int(cmd.mgmodel, &model_int);
     model_int_flag = model_int;
+    //fprintf(stdout,"\nRunning %s model",cmd.mgmodel);
+    // fprintf(stdout,"%d",model_int);
     switch (model_int){
         case HS: set_Model_HS(); break;
         case DGP: set_Model_DGP(); break;
  //       case USERMODEL: set_Model_USER(); break; // In models_user.h
         case LCDM: set_Model_LCDM(); break;
-        default: error("\nUnknown model type %s\n\n",cmd.mgmodel);
+        case HDKI: set_Model_HDKI(); break;
+        default: error("\nUnknown model %s\n",cmd.mgmodel);
     }
 }
 
@@ -115,6 +173,8 @@ local void model_string_to_int(string model_str,int *model_int)
  //   if (strcmp(model_str,"user") == 0)              *model_int=USERMODEL;
     if (strcmp(model_str,"LCDM") == 0)              *model_int=LCDM;
     if (strcmp(model_str,"lcdm") == 0)              *model_int=LCDM;
+    if (strcmp(model_str,"HDKI") == 0)              *model_int=HDKI;
+    if (strcmp(model_str,"hdki") == 0)              *model_int=HDKI;
 }
 
 global real kpp(real x, real k, real p)
@@ -143,6 +203,7 @@ global real OmM(real eta)
         case DGP: tmp=OmM_DGP(eta); break;
  //       case USERMODEL: tmp=OmM_USER(eta); break;
         case LCDM: tmp=OmM_LCDM(eta); break;
+        case HDKI: tmp=OmM_HDKI(eta); break;
     }
     return tmp;
 }
@@ -155,6 +216,7 @@ global real H(real eta)
         case DGP: tmp=H_DGP(eta); break;
  //       case USERMODEL: tmp=H_USER(eta); break;
         case LCDM: tmp=H_LCDM(eta); break;
+        case HDKI: tmp=H_HDKI(eta); break;
     }
     return tmp;
 }
@@ -167,6 +229,7 @@ global real f1(real eta)
         case DGP: tmp=f1_DGP(eta); break;
  //       case USERMODEL: tmp=f1_USER(eta); break;
         case LCDM: tmp=f1_LCDM(eta); break;
+        case HDKI: tmp=f1_HDKI(eta); break;
     }
     return tmp;
 }
@@ -179,6 +242,7 @@ global real f2(real eta)
         case DGP: tmp=f2_DGP(eta); break;
  //       case USERMODEL: tmp=f2_USER(eta); break;
         case LCDM: tmp=f2_LCDM(eta); break;
+        case HDKI: tmp=f2_HDKI(eta); break;
     }
     return tmp;
 }
@@ -191,6 +255,7 @@ global real A0(real eta)
         case DGP: tmp=A0_DGP(eta); break;
  //       case USERMODEL: tmp=A0_USER(eta); break;
         case LCDM: tmp=A0_LCDM(eta); break;
+        case HDKI: tmp=A0_HDKI(eta); break;
     }
     return tmp;
 }
@@ -203,7 +268,11 @@ global real mu(real eta, real k)
         case DGP: tmp=mu_DGP(eta, k); break;
  //       case USERMODEL: tmp=mu_USER(eta, k); break;
         case LCDM: tmp=mu_LCDM(eta, k); break;
+        case HDKI: tmp=mu_HDKI(eta,k); break;
     }
+    // if (k<0.21 && k>0.20){
+    //     fprintf(stdout,"val=%g ", tmp);
+    // }
     return tmp;
 }
 
@@ -215,6 +284,7 @@ global real sourceA(real eta, real kf, real k1, real k2)
         case DGP: tmp=sourceA_DGP(eta, kf, k1, k2); break;
  //       case USERMODEL: tmp=sourceA_USER(eta, kf, k1, k2); break;
         case LCDM: tmp=sourceA_LCDM(eta, kf, k1, k2); break;
+        case HDKI: tmp=sourceA_HDKI(eta, kf, k1, k2); break;
     }
     return tmp;
 }
@@ -227,6 +297,7 @@ global real sourceb(real eta, real kf, real k1, real k2)
         case DGP: tmp=sourceb_DGP(eta, kf, k1, k2); break;
  //       case USERMODEL: tmp=sourceb_USER(eta, kf, k1, k2); break;
         case LCDM: tmp=sourceb_LCDM(eta, kf, k1, k2); break;
+        case HDKI: tmp=sourceb_HDKI(eta, kf, k1, k2); break;
     }
     return tmp;
 }
@@ -239,6 +310,7 @@ global real SD2(real eta, real x, real k, real p)
         case DGP: tmp=SD2_DGP(eta, x, k, p); break;
   //      case USERMODEL: tmp=SD2_USER(eta, x, k, p); break;
         case LCDM: tmp=SD2_LCDM(eta, x, k, p); break;
+        case HDKI: tmp=SD2_HDKI(eta, x, k, p); break;
     }
     return tmp;
 }
@@ -251,6 +323,7 @@ global real S3I(real eta, real x, real k, real p, real Dpk, real Dpp, real D2f, 
         case DGP: tmp=S3I_DGP(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
  //       case USERMODEL: tmp=S3I_USER(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
         case LCDM: tmp=S3I_LCDM(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
+        case HDKI: tmp=S3I_HDKI(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
     }
     return tmp;
 }
@@ -263,6 +336,7 @@ global real S3II(real eta, real x, real k, real p, real Dpk, real Dpp, real D2f,
         case DGP: tmp=S3II_DGP(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
   //      case USERMODEL: tmp=S3II_USER(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
         case LCDM: tmp=S3II_LCDM(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
+        case HDKI: tmp=S3II_HDKI(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
     }
     return tmp;
 }
@@ -275,6 +349,7 @@ global real S3FL(real eta, real x, real k, real p, real Dpk, real Dpp, real D2f,
         case DGP: tmp=S3FL_DGP(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
   //      case USERMODEL: tmp=S3FL_USER(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
         case LCDM: tmp=S3FL_LCDM(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
+        case HDKI: tmp=S3FL_HDKI(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
     }
     return tmp;
 }
@@ -287,12 +362,14 @@ global real S3dI(real eta, real x, real k, real p, real Dpk, real Dpp, real D2f,
         case DGP: tmp=S3dI_DGP(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
   //      case USERMODEL: tmp=S3dI_USER(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
         case LCDM: tmp=S3dI_LCDM(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
+        case HDKI: tmp=S3dI_HDKI(eta, x, k, p, Dpk, Dpp, D2f, D2mf); break;
     }
     return tmp;
 }
 
 #undef HS
 #undef DGP
+#undef HDKI
 
 // ===========================================================================
 // END :: SWITCHING MODELS ROUTINES
@@ -395,10 +472,11 @@ local void set_Model_HS(void)
 //    fR0=1.0e-5;
 //    beta2=1.0/6.0;
 //    omegaBD = 0.0;
-//    screening = 1.0;
+    // screening = 0.0;
     gd.beta2 = 1.0/6.0;
     cmd.omegaBD = 0.0;
-    cmd.nHS = 1;
+    cmd.nHS = 1; 
+
 }
 
 local real mass_HS(real eta)
@@ -1998,4 +2076,669 @@ local real S3dI_LCDM(real eta, real x, real k, real p, real Dpk, real Dpp,
 // End: LCDM Model
 // ===========================================================================
 
+
+
+
+
+
+
+
+
+
+// ===========================================================================
+// Begin: Horndeski Model  (h1,h3,h5 parametrization)
+// ===========================================================================
+
+static int _is(const char* s, const char* name){
+    /* case-insensitive equality */
+    if (!s || !name) return 0;
+    return strcasecmp(s, name) == 0;
+}
+
+// Begin :: mglpt_fns
+local real OmM_HDKI(real eta)
+{
+    real OmMtmp;
+    
+    OmMtmp=1.0/(1.0 + ( (gd.ol)/cmd.om)*rexp(3.0*eta) );
+    return (OmMtmp);
+}
+
+local  real H_HDKI(real eta)
+{
+    real Htmp;
+    
+    Htmp=rsqrt(cmd.om*rexp(-3.0*eta)+(gd.ol));
+    return (Htmp);
+}
+
+local  real f1_HDKI(real eta)
+{
+    real f1tmp;
+    
+    f1tmp=3.0/(2.0*(1.0 + ((gd.ol)/cmd.om)*rexp(3.0*eta)));
+    return (f1tmp);
+}
+
+local  real f2_HDKI(real eta)
+{
+    real f2tmp;
+    
+    f2tmp=2.0 - 3.0/(2.0*(1.0+ ((gd.ol)/cmd.om)*rexp(3.0*eta)));
+    return (f2tmp);
+}
+
+local real A0_HDKI(real eta)
+{
+    real A0tmp;
+    
+    A0tmp = 1.5*OmM_HDKI(eta)*rsqr(H_HDKI(eta))/rsqr(invH0);
+    
+    return (A0tmp);
+}
+// End :: mglpt_fns
+
+// Begin: Horndeski local HEADERS
+local real mass_HDKI(real eta);
+local real JFL_HDKI(real eta, real x, real k, real p);
+local real KFL_HDKI(real eta, real k, real k1, real k2);
+local real KFL2_HDKI(real eta, real x, real k, real p);
+local real PiF_HDKI(real eta, real k);
+local real M1_HDKI(real eta);
+local real M2_HDKI(real eta);
+local real M3_HDKI(real eta);
+local real S2a_HDKI(real eta, real x, real k, real p);
+local real S2b_HDKI(real eta, real x, real k, real p);
+local real S2FL_HDKI(real eta, real x, real k, real p);
+local real S2dI_HDKI(real eta, real x, real k, real p);
+
+local real sourcea_HDKI(real eta, real kf);
+local real sourceFL_HDKI(real eta, real kf, real k1, real k2);
+local real sourcedI_HDKI(real eta, real kf, real k1, real k2);
+
+local real S3IIplus_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp, real D2f);
+local real S3IIminus_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp, real D2mf);
+local real S3FLplus_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp, real D2f);
+local real S3FLminus_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp, real D2mf);
+local real D2phiplus_HDKI(real eta, real x, real k, real p,
+                     real Dpk, real Dpp, real D2f);
+local real D2phiminus_HDKI(real eta, real x, real k, real p,
+                      real Dpk, real Dpp, real D2mf);
+local real K3dI_HDKI(real eta, real x, real k,  real p,
+                 real Dpk, real Dpp, real D2f, real D2mf);
+// End: Hu-Sawicky Model local HEADERS
+
+local real h1_HDKI(real eta);
+local real h3_HDKI(real eta);
+local real h5_HDKI(real eta);
+
+
+
+
+
+    
+    
+local void set_Model_HDKI(void)
+{
+    strcpy(gd.model_comment, "Horndeski Models");
+//
+// Parameters set and default values:
+//    nHS=1.0;
+//    fR0=1.0e-5;
+//    beta2=1.0/6.0;
+//    omegaBD = 0.0;
+//    screening = 1.0;
+    gd.beta2 = 1.0/6.0;
+    cmd.omegaBD = 0.0;
+    cmd.nHS = 1;
+}
+
+// Horndeski modification //
+/* ---------- Alejandro h{1,3,5} functions for baseline HDKI ---------- */
+// Paramerization is 
+// mu(k,t) = h1(t)  (1 + h1(t) k^2) / (1+ h1(t) k^2)
+// Modify only the three following functions    
+local real h1_HDKI(real eta) //Modify here
+{
+    /* Variant: baseline => h1 = mg1; others can reinterpret mg1 if needed */
+    if (_is(cmd.mg_variant, "baseline")) return cmd.mg1;
+    /* Future variants: put custom time-dependence here using mg1..mg5 or other cmd.* */
+    return cmd.mg1; /* safe fallback */
+}
+
+local real h3_HDKI(real eta) //Modify here
+{
+    if (_is(cmd.mg_variant, "baseline")) return cmd.mg3;
+    /* Future variants: put custom time-dependence here using mg1..mg5 or other cmd.* */
+    return cmd.mg3; /* safe fallback */
+}
+
+local real h5_HDKI(real eta) //Modify here
+{
+    if (_is(cmd.mg_variant, "baseline")) return cmd.mg5;
+    /* Future variants: put custom time-dependence here using mg1..mg5 or other cmd.* */
+    return cmd.mg5; /* safe fallback */
+}
+/* ---------- Alejandro h{1,3,5} functions for baseline HDKI ---------- */
+
+
+/* ---------- Cristhian MG functions from ISiTGR (seems easier just to write them explicitly) ---------- */
+
+/* helpers: convert η = ln a to (a,z) */
+static inline real a_from_eta(real eta) { return rexp(eta); }
+static inline real z_from_eta(real eta) { const real a = rexp(eta); return 1.0/a - 1.0; }
+
+/* Model 1: mu(a) = 1 + mu0 * Omega_DE(a)
+   You will provide Omega_DE(a) elsewhere. */
+real Omega_DE(real a)
+{
+    return 1.0 / (gd.ol + cmd.om * rpow(a, -3.0));
+}
+
+
+/* Model 2: BZ (Bertschinger–Zukin)
+   mu(k,a) = (1 + β1 * λ1^2 k^2 a^s) / (1 + λ1^2 k^2 a^s)
+   where β1=cmd.beta_1, λ1=cmd.lambda_1, s=cmd.exp_s. */
+static inline real mu_BZ(real eta, real k)
+{
+    const real a = a_from_eta(eta);
+    const real x = (cmd.lambda_1 * cmd.lambda_1) * (k * k) * rpow(a, cmd.exp_s);
+    return (1.0 + cmd.beta_1 * x) / (1.0 + x);
+}
+
+/* Model 3: (z,k) binning with smooth tanh transitions
+
+   mu(z,k) = (1 + mu_z1(k))/2
+           + [mu_z2(k) - mu_z1(k)]/2 * tanh((z - z_div)/z_tw)
+           + [1 - mu_z2(k)]/2       * tanh((z - z_TGR)/z_tw)
+
+   mu_z1(k) = (mu2 + mu1)/2 + (mu2 - mu1)/2 * tanh((k - k_c)/k_tw)
+   mu_z2(k) = (mu4 + mu3)/2 + (mu4 - mu3)/2 * tanh((k - k_c)/k_tw)
+
+   Parameters (already in cmd):
+     mu1..mu4, z_div, z_TGR, z_tw, k_c, k_tw
+*/
+static inline real _tanh_step(real x, real w)
+{
+    const real eps = 1e-12;
+    if (fabs(w) <= eps) return (x >= 0.0) ? 1.0 : -1.0; /* sharp step if w ~ 0 */
+    return tanh(x / w);
+}
+
+static inline real mu_binning(real eta, real k)
+{
+    const real a = a_from_eta(eta);
+    if (a <= 0.0) return 1.0; /* guard */
+    const real z = 1.0/a - 1.0;
+
+    /* k-bin transition */
+    const real Tk = _tanh_step(k - cmd.k_c, cmd.k_tw);
+    const real mu_z1 = 0.5*(cmd.mu2 + cmd.mu1) + 0.5*(cmd.mu2 - cmd.mu1)*Tk;
+    const real mu_z2 = 0.5*(cmd.mu4 + cmd.mu3) + 0.5*(cmd.mu4 - cmd.mu3)*Tk;
+
+    /* z-bin transitions */
+    const real Tz_div = _tanh_step(z - cmd.z_div, cmd.z_tw);
+    const real Tz_TGR = _tanh_step(z - cmd.z_TGR, cmd.z_tw);
+
+    /* final μ(z,k) */
+    return 0.5*(1.0 + mu_z1)
+         + 0.5*(mu_z2 - mu_z1)*Tz_div
+         + 0.5*(1.0 - mu_z2)*Tz_TGR;
+}
+/* ---------- Cristhian MG functions from ISiTGR (seems easier just to write them explicitly) ---------- */
+
+
+/* ---------- Key function for mu(a,k) ---------- */
+local real mu_HDKI(real eta, real k)
+{
+
+    //fprintf(stdout, "mg_variant seen by C: '%s' (len=%zu)\n",
+    //    cmd.mg_variant ? cmd.mg_variant : "(null)",
+    //    cmd.mg_variant ? strlen(cmd.mg_variant) : 0u);
+    //fflush(stdout);
+    /* Variant switch: user selects via cmd.mg_variant */
+    if (_is(cmd.mg_variant, "mu_OmDE")) {
+        const real a = a_from_eta(eta);
+        return 1.0 + cmd.mu0 * Omega_DE(a);
+    }
+    if (_is(cmd.mg_variant, "BZ")) {
+        return mu_BZ(eta, k);
+    }
+    if (_is(cmd.mg_variant, "binning")) {
+        return mu_binning(eta, k);
+    }
+    /* baseline Horndeski: μ = h1 * (1 + h5 k^2)/(1 + h3 k^2) */
+    const real k2 = k * k;
+    return h1_HDKI(eta) * (1.0 + h5_HDKI(eta) * k2) / (1.0 + h3_HDKI(eta) * k2);
+}
+/* ---------- Key function for mu(a,k) ---------- */
+        
+local real mass_HDKI(real eta)
+{
+    real masstmp;
+    real small_;
+    small_ = 1.0e-60;
+    // small_ = 0.0;
+    masstmp = sqrt(1/( h3_HDKI(eta) + small_)) / rexp(eta) ;
+
+    return (masstmp);
+}
+    
+local real PiF_HDKI(real eta, real k)
+{
+    real PiFtmp;
+    
+    PiFtmp = k*k/rexp(2.0*eta) + rsqr(mass_HDKI(eta));
+    
+    return (PiFtmp);
+}
+
+
+// ---------------------------------------------------------------------------
+// BEGIN :: SECOND ORDER (six second order differential equations)
+//
+
+local real M2_HDKI(real eta)
+{
+    real M2tmp;
+
+    M2tmp = cmd.screening;
+    M2tmp *= (9.0/(4.0*rsqr(invH0)))*rsqr(1.0/rabs(cmd.fR0))
+    * rpow(cmd.om*rexp(-3.0*eta)+4.0*(gd.ol),5.0)
+    / rpow(cmd.om+4*(gd.ol),4.0);
+    
+    return (M2tmp);
+}
+
+
+local real KFL_HDKI(real eta, real k, real k1, real k2)
+{
+    real KFLtmp;
+
+    KFLtmp = 0.5*(rsqr(sqr(k)-sqr(k1)-sqr(k2))/(sqr(k1)*sqr(k2)))*(mu_HDKI(eta,k1)+mu_HDKI(eta,k2)-2.0)
+        + 0.5*((sqr(k)-sqr(k1)-sqr(k2))/sqr(k1))*(mu_HDKI(eta,k1)-1.0)
+        + 0.5*((sqr(k)-sqr(k1)-sqr(k2))/sqr(k2))*(mu_HDKI(eta,k2)-1.0);
+
+    return (KFLtmp);
+}
+
+local real sourceA_HDKI(real eta, real kf, real k1, real k2)
+{
+    real Stmp;
+
+    Stmp = sourcea_HDKI(eta, kf)
+            + sourceFL_HDKI(eta, kf, k1, k2)
+            - sourcedI_HDKI(eta, kf, k1, k2);
+
+    return Stmp;
+}
+
+local real sourcea_HDKI(real eta, real kf)
+{
+    real Stmp;
+    
+    Stmp = f1(eta)*mu_HDKI(eta, kf);
+
+    return Stmp;
+}
+
+local real sourceb_HDKI(real eta, real kf, real k1, real k2)
+{
+    real Stmp;
+    
+    Stmp = f1(eta)*( mu_HDKI(eta, k1) + mu_HDKI(eta, k2) - mu_HDKI(eta, kf));
+
+    return Stmp;
+}
+
+local real sourceFL_HDKI(real eta, real kf, real k1, real k2)
+{
+    real Stmp;
+    
+    Stmp = f1(eta)*(rsqr(mass_HDKI(eta))/PiF_HDKI(eta,kf))*KFL_HDKI(eta, kf, k1, k2);
+
+    return Stmp;
+}
+
+local real sourcedI_HDKI(real eta, real kf, real k1, real k2)
+{
+    real Stmp;
+    
+    Stmp = (1.0/6.0)*rsqr(OmM_HDKI(eta)*H_HDKI(eta)/(rexp(eta)*invH0))
+            * rsqr(kf)*M2_HDKI(eta)/ ( PiF_HDKI(eta,kf)*PiF_HDKI(eta,k1)*PiF_HDKI(eta,k2) );
+    
+    return Stmp;
+}
+
+//
+// END :: SECOND ORDER (six second order differential equations)
+// ---------------------------------------------------------------------------
+
+
+// ---------------------------------------------------------------------------
+// BEGIN :: THIRD ORDER (Dsymmetric, five second order differential equations)
+//
+
+local real M1_HDKI(real eta)
+{
+    real M1tmp;
+    
+    M1tmp = 3.0*rsqr(mass_HDKI(eta));
+    
+    return (M1tmp);
+}
+
+local real M3_HDKI(real eta)
+{
+    real M3tmp;
+
+    M3tmp = cmd.screening;
+    M3tmp *= (45.0/(8.0*rsqr(invH0)))*rpow(1.0/rabs(cmd.fR0),3.0)
+    * rpow(cmd.om*rexp(-3.0*eta)+4.0*(gd.ol),7.0)
+    / rpow(cmd.om+4*(gd.ol),6.0);
+    
+    return (M3tmp);
+}
+
+local real KFL2_HDKI(real eta, real x, real k, real p)
+{
+    real KFLtmp;
+    
+    KFLtmp = 2.0*rsqr(x)*( mu_HDKI(eta,k) + mu_HDKI(eta,p)-2.0 )
+            + (p*x/k)*(mu_HDKI(eta,k) - 1.0)
+            + (k*x/p)*(mu_HDKI(eta,p) - 1.0);
+
+    return (KFLtmp);
+}
+
+local real JFL_HDKI(real eta, real x, real k, real p)
+{
+    real JFLtmp;
+    
+    JFLtmp = (9.0/(2.0*A0(eta)))
+            * KFL2_HDKI(eta, x, k, p) * PiF_HDKI(eta, k) * PiF_HDKI(eta, p);
+
+    return (JFLtmp);
+}
+
+local real D2phiplus_HDKI(real eta, real x, real k, real p,
+                     real Dpk, real Dpp, real D2f)
+{
+    real D2tmp;
+    
+    D2tmp = (
+             (1.0 + rsqr(x))
+             -( 2.0*A0(eta)/3.0 )
+             * (
+                ( M2_HDKI(eta) + JFL_HDKI(eta,x,k,p)*(3.0+2.0*cmd.omegaBD) )
+                / (3.0*PiF_HDKI(eta,k)*PiF_HDKI(eta,p))
+                )
+             ) * Dpk*Dpp + D2f;
+    
+    return (D2tmp);
+}
+
+local real D2phiminus_HDKI(real eta, real x, real k, real p,
+                     real Dpk, real Dpp, real D2mf)
+{
+    real D2tmp;
+    
+    D2tmp = (
+             (1.0 + rsqr(x))
+             -( 2.0*A0(eta)/3.0 )
+             * (
+                ( M2_HDKI(eta) + JFL_HDKI(eta,-x,k,p)*(3.0+2.0*cmd.omegaBD) )
+                / (3.0*PiF_HDKI(eta,k)*PiF_HDKI(eta,p))
+                )
+             ) * Dpk*Dpp + D2mf;
+
+    return (D2tmp);
+}
+
+local real K3dI_HDKI(real eta, real x, real k,  real p,
+                 real Dpk, real Dpp, real D2f, real D2mf)
+{
+    real K3tmp, kplusp, kpluspm;
+    real t1, t2, t3, t4, t5, t6;
+
+    kplusp = kpp(x,k,p);
+    kpluspm = kpp(-x,k,p);
+
+    t1 = 2.0*rsqr(OmM_HDKI(eta)*H_HDKI(eta)/invH0)
+            *(M2_HDKI(eta)/(PiF_HDKI(eta,k)*PiF_HDKI(eta,0)));
+
+    t2 = (1.0/3.0)*(rpow(OmM_HDKI(eta),3.0)*rpow(H_HDKI(eta),4.0)/rpow(invH0,4) )
+        *(
+            M3_HDKI(eta) - M2_HDKI(eta)*(M2_HDKI(eta) + JFL_HDKI(eta,-1.0,p,p)*(3.0+2.0*cmd.omegaBD))
+                        /(PiF_HDKI(eta,0))
+          ) / ( rsqr(PiF_HDKI(eta,p)) * PiF_HDKI(eta,k) );
+
+    t3 = rsqr(OmM_HDKI(eta)*H_HDKI(eta)/invH0)
+        *(M2_HDKI(eta)/(PiF_HDKI(eta,p)*PiF_HDKI(eta,kplusp)))
+        *(
+            1.0 + rsqr(x) + (D2f)/(Dpk*Dpp)
+          );
+    
+    t4 = (1.0/3.0)*(rpow(OmM_HDKI(eta),3.0)*rpow(H_HDKI(eta),4.0)/rpow(invH0,4) )
+        *(
+            M3_HDKI(eta) - M2_HDKI(eta)*(M2_HDKI(eta) + JFL_HDKI(eta,x,k,p)*(3.0+2.0*cmd.omegaBD))
+                        /(PiF_HDKI(eta,kplusp))
+          ) / ( rsqr(PiF_HDKI(eta,p)) * PiF_HDKI(eta,k) );
+    
+    t5 = rsqr(OmM_HDKI(eta)*H_HDKI(eta)/invH0)
+        *(M2_HDKI(eta)/(PiF_HDKI(eta,p)*PiF_HDKI(eta,kpluspm)))
+        *(
+            1.0 + rsqr(x) + (D2mf)/(Dpk*Dpp)
+          );
+    
+    t6 = (1.0/3.0)*(rpow(OmM_HDKI(eta),3.0)*rpow(H_HDKI(eta),4.0)/rpow(invH0,4) )
+        *(
+          M3_HDKI(eta) - M2_HDKI(eta)*(M2_HDKI(eta) + JFL_HDKI(eta,-x,k,p)*(3.0+2.0*cmd.omegaBD))
+                /(PiF_HDKI(eta,kpluspm))
+          ) / ( rsqr(PiF_HDKI(eta,p)) * PiF_HDKI(eta,k) );
+
+    K3tmp = t1 + t2 + t3 + t4 + t5 + t6;
+
+    return (K3tmp);
+}
+
+local real S2a_HDKI(real eta, real x, real k, real p)
+{
+    real Dtmp, kplusp;
+
+    kplusp = kpp(x,k,p);
+    Dtmp = f1(eta)*mu_HDKI(eta,kplusp);
+
+    return Dtmp;
+}
+
+local real S2b_HDKI(real eta, real x, real k, real p)
+{
+    real Dtmp, kplusp;
+    
+    kplusp = kpp(x,k,p);
+    Dtmp = f1(eta)*(mu_HDKI(eta,k)+mu_HDKI(eta,p)-mu_HDKI(eta,kplusp));
+    
+    return Dtmp;
+}
+
+local real S2FL_HDKI(real eta, real x, real k, real p)
+{
+    real Dtmp, kplusp;
+    
+    kplusp = kpp(x,k,p);
+    Dtmp = f1(eta)*(
+                    M1_HDKI(eta)/(3.0*PiF_HDKI(eta,kplusp))
+                    *KFL2_HDKI(eta,x,k,p)
+                    );
+    return Dtmp;
+}
+
+local real S2dI_HDKI(real eta, real x, real k, real p)
+{
+    real Dtmp, kplusp;
+    
+    kplusp = kpp(x,k,p);
+    Dtmp = (1.0/6.0)*
+            rsqr(OmM_HDKI(eta)*H_HDKI(eta)/(rexp(eta)*invH0))
+        * ( (rsqr(kplusp)*M2_HDKI(eta)) / (PiF_HDKI(eta,kplusp)*PiF_HDKI(eta,k)*PiF_HDKI(eta,p)));
+
+    return Dtmp;
+}
+
+local real SD2_HDKI(real eta, real x, real k, real p)
+{
+    real Dtmp;
+
+    Dtmp = S2a_HDKI(eta, x, k, p) -  S2b_HDKI(eta, x, k, p)*rsqr(x)
+        + S2FL_HDKI(eta, x, k, p) - S2dI_HDKI(eta, x, k, p);
+
+    return Dtmp;
+}
+
+local real S3I_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp,
+                real D2f, real D2mf)
+{
+    real Stmp, kplusp, kpluspm;
+
+    kplusp = kpp(x,k,p);
+    kpluspm = kpp(-x,k,p);
+    Stmp = (
+            f1(eta)*(mu_HDKI(eta,p)+mu_HDKI(eta,kplusp)-mu_HDKI(eta,k))*D2f*Dpp
+                + SD2_HDKI(eta,x,k,p)*Dpk*Dpp*Dpp
+            )*(1.0 - rsqr(x))/(1.0 + rsqr(p/k) + 2.0*(p/k)*x)
+        + (
+           f1(eta)*(mu_HDKI(eta,p)+mu_HDKI(eta,kpluspm)-mu_HDKI(eta,k))*D2mf*Dpp
+            + SD2_HDKI(eta,-x,k,p)*Dpk*Dpp*Dpp
+           )*(1.0 - rsqr(x))/(1.0 + rsqr(p/k) - 2.0*(p/k)*x);
+
+    return (Stmp);
+}
+
+local real S3IIplus_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp, real D2f)
+{
+    real Stmp, kplusp;
+    
+    kplusp = kpp(x,k,p);
+    
+    Stmp =
+    -f1(eta)*(mu_HDKI(eta,p)+mu_HDKI(eta,kplusp)-2.0*mu_HDKI(eta,k))
+    * Dpp*( D2f + Dpk*Dpp*rsqr(x) )
+    
+    -f1(eta)*(mu_HDKI(eta,kplusp)-mu_HDKI(eta,k))*Dpk*Dpp*Dpp
+    
+    -(
+      (M1_HDKI(eta)/(3.0*PiF_HDKI(eta,kplusp))) * f1(eta)*KFL2_HDKI(eta,x,k,p)
+      -rsqr(OmM_HDKI(eta)*H_HDKI(eta)/invH0)
+      * (M2_HDKI(eta)*kplusp*kplusp*rexp(-2.0*eta))
+      / (6.0*PiF_HDKI(eta,kplusp)*PiF_HDKI(eta,k)*PiF_HDKI(eta,p))
+      )*Dpk*Dpp*Dpp;
+    
+    return (Stmp);
+}
+
+local real S3IIminus_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp, real D2mf)
+{
+    real Stmp, kpluspm;
+
+    kpluspm = kpp(-x,k,p);
+
+    Stmp =
+    -f1(eta)*(mu_HDKI(eta,p)+mu_HDKI(eta,kpluspm)-2.0*mu_HDKI(eta,k))
+    * Dpp*( D2mf + Dpk*Dpp*rsqr(x) )
+    
+    -f1(eta)*(mu_HDKI(eta,kpluspm)-mu_HDKI(eta,k))*Dpk*Dpp*Dpp
+    
+    -(
+      (M1_HDKI(eta)/(3.0*PiF_HDKI(eta,kpluspm))) * f1(eta)*KFL2_HDKI(eta,-x,k,p)
+      -rsqr(OmM_HDKI(eta)*H_HDKI(eta)/invH0)
+      * (M2_HDKI(eta)*kpluspm*kpluspm*rexp(-2.0*eta))
+      / (6.0*PiF_HDKI(eta,kpluspm)*PiF_HDKI(eta,k)*PiF_HDKI(eta,p))
+      )*Dpk*Dpp*Dpp;
+    
+    return (Stmp);
+}
+
+local real S3II_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp, real D2f, real D2mf)
+{
+    real Stmp;
+    
+    Stmp =  S3IIplus_HDKI(eta, x, k, p, Dpk, Dpp, D2f)
+         + S3IIminus_HDKI(eta, x, k, p, Dpk, Dpp, D2mf);
+
+    return (Stmp);
+}
+
+local real S3FLplus_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp, real D2f)
+{
+    real Stmp, kplusp;
+    
+    kplusp = kpp(x,k,p);
+    
+    Stmp = f1(eta)*(M1_HDKI(eta)/(3.0*PiF_HDKI(eta,k)))
+    *(
+        (2.0*rsqr(p+k*x)/rsqr(kplusp) - 1.0 - (k*x)/p )
+        *( mu_HDKI(eta,p)-1.0 )* D2f * Dpp
+      
+        + ( (rsqr(p) + 3.0*k*p*x + 2.0*k*k * x*x)/rsqr(kplusp) )
+        *( mu_HDKI(eta,kplusp) - 1.0) * D2phiplus_HDKI(eta,x,k,p,Dpk,Dpp,D2f) * Dpp
+      
+      + 3.0*rsqr(x)*( mu_HDKI(eta,k) + mu_HDKI(eta,p) - 2.0 ) * Dpk * Dpp * Dpp
+    );
+    
+    return (Stmp);
+}
+
+local real S3FLminus_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp, real D2mf)
+{
+    real Stmp, kpluspm;
+    
+    kpluspm = kpp(-x,k,p);
+    
+    Stmp = f1(eta)*(M1_HDKI(eta)/(3.0*PiF_HDKI(eta,k)))
+    *(
+      (2.0*rsqr(p-k*x)/rsqr(kpluspm) - 1.0 + (k*x)/p )
+      *( mu_HDKI(eta,p)-1.0 )* D2mf * Dpp
+      
+      + ( (rsqr(p) - 3.0*k*p*x + 2.0*k*k * x*x)/rsqr(kpluspm) )
+      *( mu_HDKI(eta,kpluspm) - 1.0) * D2phiminus_HDKI(eta,x,k,p,Dpk,Dpp,D2mf) * Dpp
+      
+      + 3.0*rsqr(x)*( mu_HDKI(eta,k) + mu_HDKI(eta,p) - 2.0 ) * Dpk * Dpp * Dpp
+      );
+    
+    return (Stmp);
+}
+
+local real S3FL_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp, real D2f, real D2mf)
+{
+    real Stmp;
+
+    Stmp = S3FLplus_HDKI(eta, x, k, p, Dpk, Dpp, D2f)
+        + S3FLminus_HDKI(eta, x, k, p, Dpk, Dpp, D2mf);
+
+    return (Stmp);
+}
+
+local real S3dI_HDKI(real eta, real x, real k, real p, real Dpk, real Dpp,
+                 real D2f, real D2mf)
+{
+    real Stmp;
+    
+    Stmp = -(rsqr(k)/rexp(2.0*eta))
+        *(1.0/(6.0*PiF_HDKI(eta,k)))
+        *K3dI_HDKI(eta,x,k,p,Dpk,Dpp,D2f,D2mf)*Dpk*Dpp*Dpp;
+
+    return (Stmp);
+}
+
+//
+// END :: THIRD ORDER (Dsymmetric, five second order differential equations)
+// ---------------------------------------------------------------------------
+
+
+// ===========================================================================
+// End: Hu-Sawicky Model
+// ===========================================================================
+
+    
 

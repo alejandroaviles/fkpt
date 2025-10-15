@@ -64,6 +64,27 @@ id[nt++]=STRING;}
 #define SIXPI2  59.21762640653615
 #define INVSQRTDTWOPI 0.39894228040143267794
 
+/* ===== base typedefs/macros needed by other headers ===== */
+#ifndef FKPT_HAVE_REAL
+typedef double real;
+#define FKPT_HAVE_REAL 1
+#endif
+
+#ifndef local
+#define local  static
+#endif
+#ifndef global
+#define global extern
+#endif
+
+/* ===== forward typedefs so we can declare globals here ===== */
+typedef struct q_arrays q_arrays;
+typedef struct r_arrays r_arrays;
+/* If you also have kFArrays as a global, forward-declare it too: */
+typedef struct kF_arrays kF_arrays;
+
+/* DO NOT include clpt_types.h here (avoids include cycles) */
+
 typedef struct {
 // Background cosmology:
     real om;
@@ -123,12 +144,37 @@ typedef struct {
     string paramfile;
 // Modified gravity model parameters:
     string mgmodel;
+    string mg_variant;   /* NEW: sub-variant name for HDKI */
     string suffixModel;
     string model_paramfile;
     int nHS;
     real fR0;
     real omegaBD;
     real screening;
+    real mg1;
+    real mg2;
+    real mg3;
+    real mg4;
+    real mg5;
+// CGQ for MG variants from ISiTGR
+    real mu0;
+    real c1;
+    real c2;
+    real Lambda;
+    real beta_1;
+    real lambda_1;
+    real exp_s;
+    real beta_2;
+    real lambda_2;
+    real mu1;
+    real mu2;
+    real mu3;
+    real mu4;
+    real z_div;
+    real z_TGR;
+    real z_tw;
+    real k_tw;
+    real k_c;
 // DGP:
     real eps_DGP;
     real rc_DGP;
@@ -212,12 +258,27 @@ typedef struct {
     
     real Sigma2;
     real deltaSigma2;
-
+    // CGQ MOD: get growth from ISiTGR
+    int   use_external_fk;   /* 0 = compute internally (default), 1 = provided by user */
+    double f0_external;      /* optional: if you want to carry explicit f0 from caller */
+    /* runtime switch for whether to use LCDM vs model-dependent kernels */
+    int   kernels_beyond_eds;  /* 0 = standard EdS-like kernels, 1 = beyond-EdS kernels */
+    // CGQ MOD: get growth from ISiTGR
     
 } global_data, *global_data_ptr;
 
 
 global global_data gd;
+/* Arrays used by CLPT (filled in global.c, consumed in clpt.c) */
+/* ---- add these forward declarations near the top of globaldefs.h ---- */
+struct r_arrays;
+struct q_arrays;
+struct q_arraysd;
+
+/* ---- then make sure the externs use the struct tags ---- */
+extern struct r_arrays  rArrays;   /* r-space tables */
+extern struct q_arrays  qArrays;   /* q-space tables */
+extern struct q_arraysd qArraysd;  /* derivatives/splines in q */
 global cmdline_data cmd;
 
 global real *yout;

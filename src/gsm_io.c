@@ -21,41 +21,31 @@ void StartOutput(void)
 // I/O directories:
 global void setFilesDirs_log(void)
 {
-    char buf[200];
-    
-    
-    sprintf(gd.tmpDir,"tmp");    
-    sprintf(buf,"if [ ! -d %s ]; then mkdir %s; fi",gd.tmpDir,gd.tmpDir);
-    system(buf);    
-    sprintf(gd.logfilePath,"%s/gsm%s.log",gd.tmpDir,cmd.suffixModel);
-    return;
+    /* No on-disk logging: send logs to the bit bucket,
+       and don’t create any directories. */
+    gd.tmpDir[0] = '\0';
+    snprintf(gd.logfilePath, sizeof(gd.logfilePath), "/dev/null");
 }
 
+/* Also make setFilesDirs() a no-op that disables outputs.
+   We’ll guard the actual writes next (in startrun.c etc.). */
 global void setFilesDirs(void)
 {
-    char buf[200];
-    
-    sprintf(gd.clptDir,"Output");
-    sprintf(buf,"if [ ! -d %s ]; then mkdir %s; fi",gd.clptDir,gd.clptDir);
-    fprintf(gd.outlog,"system: %s\n",buf);
-    system(buf);
+    /* Tell downstream code “don’t write anywhere”. */
+    gd.tmpDir[0]  = '\0';
+    gd.clptDir[0] = '\0';
 
-    //~ sprintf(gd.fpfnameTables,"Output/tables%s.dat",cmd.suffixModel); 
-    //~ sprintf(gd.fpfnameParams,"Output/params%s.dat",cmd.suffixModel);   
-    sprintf(gd.fpfnamekfun,"Output/kfunctions%s.dat",cmd.suffixModel);  
-    sprintf(gd.fpfnamekfunnw,"Output/kfunctions_nw%s.dat",cmd.suffixModel);
-    //~ sprintf(gd.fpfnamekfun2,"kfunctions%s_2.dat",cmd.suffixModel);
-    sprintf(gd.fpfnameSPTPowerSpectrum,"SPTPowerSpectrum%s.dat",cmd.suffixModel);
-    sprintf(gd.fpfnameqfunctions,"Output/qfunctions%s.dat",cmd.suffixModel);
-    //~ sprintf(gd.fpfnameqfunctions2,"qfunctions%s_2.dat",cmd.suffixModel);
-    sprintf(gd.fpfnameclptfunctions,"Output/clpt%s.dat",cmd.suffixModel);
-    //~ sprintf(gd.fpfnameclptfunctions2,"clpt%s_2.dat",cmd.suffixModel);    
-    sprintf(gd.fpfnamev12,"v12%s.dat",cmd.suffixModel);
-    sprintf(gd.fpfnamesigma12_parallel,"sigma12_parallel%s.dat",cmd.suffixModel);
-    sprintf(gd.fpfnamesigma12_perp,"sigma12_perp%s.dat",cmd.suffixModel);
-    sprintf(gd.fpfnamersd,"rsd_multipoles%s.dat",cmd.suffixModel);
-    
-    return;
+    /* If your build defines any precomputed output-path buffers,
+       blank them so accidental writers won’t find paths. It’s safe to
+       leave this block out if these fields don’t exist in your gd. */
+#ifdef HAVE_GD_FILEPATHS
+    gd.fpfnamekfun[0]            = '\0';
+    gd.fpfnamekfunnw[0]          = '\0';
+    gd.fpfnameqfunctions[0]      = '\0';
+    gd.fpfnameclptfunctions[0]   = '\0';
+    gd.fpfnameSPTPowerSpectrum[0]= '\0';
+    gd.fpfnamersd[0]             = '\0';
+#endif
 }
 
 void EndRun(void)

@@ -2,7 +2,14 @@
 #include "stdinc.h"
 #include "mathfns.h"
 #include "constant.h"
+// libs/mathutil.c
 #include "mathutil.h"
+#include "../src/globaldefs.h"
+#include <math.h>            // <-- add this
+
+#ifndef M_PI                 // <-- add this block
+#define M_PI 3.14159265358979323846
+#endif
 
 void Rotation3D(real vec[], real alpha, real beta, real gamma)
 {
