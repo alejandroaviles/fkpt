@@ -1,5 +1,5 @@
 /*==============================================================================
- MODULE: startrun.c				
+ MODULE: startrun.c
  ==============================================================================*/
 
 #include "globaldefs.h"
@@ -25,15 +25,15 @@ void StartRun(string head0, string head1, string head2, string head3)
 {
     real aTime;
     aTime = second();
-    
+
     gd.headline0 = head0; gd.headline1 = head1;
     gd.headline2 = head2; gd.headline3 = head3;
     //~ printf("\n%s\n%s: %s\n\t %s\n",
 		//~ gd.headline0, gd.headline1, gd.headline2, gd.headline3);
-	
+
 		//~ printf("\n \t\t fkpt - compute power spectrum in modified gravity models \n\n");
 		//~ gd.headline0, gd.headline1, gd.headline2, gd.headline3);
-    
+
     cmd.paramfile = GetParam("paramfile");
     if (!strnull(cmd.paramfile))
 		startrun_parameterfile();
@@ -44,9 +44,9 @@ void StartRun(string head0, string head1, string head2, string head3)
 
     fprintf(gd.outlog,"\nStartRun elapsed time: %g sec.\n\n",second()-aTime);
     fflush(gd.outlog);
-    
+
     //~ stropen(gd.fpfnameTables,"w!");
-   
+
 }
 
 local void startrun_parameterfile(void)
@@ -83,7 +83,7 @@ stream outparams;
     cmd.alpha2 = GetdParam("alpha2");
     cmd.alpha4 = GetdParam("alpha4");
     cmd.ctilde = GetdParam("ctilde");
-    cmd.PshotP = GetdParam("pshotp"); 
+    cmd.PshotP = GetdParam("pshotp");
     cmd.alpha0shot = GetdParam("alpha0shot");
     cmd.alpha2shot = GetdParam("alpha2shot");
 
@@ -96,11 +96,11 @@ stream outparams;
 // output array params:
     //~ cmd.smin = GetdParam("smin");
     //~ cmd.smax = GetdParam("smax");
-    //~ cmd.Ns = GetiParam("Ns");	    
+    //~ cmd.Ns = GetiParam("Ns");
     cmd.smin = 1;
     cmd.smax = 130;
-    cmd.Ns = 100;	    
- 
+    cmd.Ns = 100;
+
 //  q functions:
     //~ cmd.NqperLogDecade = GetiParam("NqperLogDecade");
     //~ cmd.Nk_qFunctionsQuad = GetiParam("Nk_qFunctionsQuad");
@@ -109,23 +109,23 @@ stream outparams;
 //  For GSM integration:
     //~ cmd.gsm_width = GetdParam("gsm_width");  //Width of Gaussian in GSM integration
     //~ cmd.gsm_sizeyT = GetiParam("gsm_sizeyT"); //Number of points in 1-d GSM integration
-    //~ cmd.gsm_NGL = GetiParam("gsm_NGL"); //Number of GL points in angular integration for rsd multipoles	
+    //~ cmd.gsm_NGL = GetiParam("gsm_NGL"); //Number of GL points in angular integration for rsd multipoles
     cmd.gsm_width = 100.;  //Width of Gaussian in GSM integration
     cmd.gsm_sizeyT = 160; //Number of points in 1-d GSM integration
-    cmd.gsm_NGL = 16; //Number of GL points in angular integration for rsd multipoles	    
+    cmd.gsm_NGL = 16; //Number of GL points in angular integration for rsd multipoles
 // Modified gravity model parameters:
     cmd.mgmodel = GetParam("model");   //";Modified gravity model to study (HS or DGP), default is LCDM",
     cmd.suffixModel = GetParam("suffixModel"); //";Suffix model to add to output filenames", ":suffix",
     cmd.model_paramfile = GetParam("modelParamfile");
     cmd.fR0 = GetdParam("fR0");
-    cmd.screening =1.0;  ";set to =0 if you want no screenings", ":sc",          
+    cmd.screening =1.0;  ";set to =0 if you want no screenings", ":sc",
 // DGP:
     cmd.eps_DGP = -1.0;
     cmd.rc_DGP = 1.0;
 //
 // Power spectrum table:
     cmd.fnamePS = GetParam("fnamePS");
-    cmd.is_PS_input_LCDM = GetiParam("is_PS_input_LCDM");    
+    cmd.is_PS_input_LCDM = GetiParam("is_PS_input_LCDM");
     cmd.kmin = GetdParam("kmin");
     cmd.kmax = GetdParam("kmax");
     cmd.Nk = GetiParam("Nk");
@@ -158,16 +158,16 @@ stream outparams;
     cmd.options = "";
 
 
-    
-    if(cmd.chatty==1){ 
+
+    if(cmd.chatty==1){
 		printf("\n \t\t fkpt - compute power spectrum in modified gravity models \n\n");
-		
+
 		fprintf(stdout,"Reading pkl from file %s in the form column1: k[h/Mpc], 2: pkl[Mpc/h]^3 \n", cmd.fnamePS);
-		fprintf(stdout,"redshift: z=%g\n",    cmd.xstop); 
-		fprintf(stdout,"OmegaM=%g\n",         cmd.om); 
-		fprintf(stdout,"h=%g\n",              cmd.h); 
-		fprintf(stdout,"b1=%g\n",             cmd.b1); 
-		fprintf(stdout,"b2=%g\n",             cmd.b2); 
+		fprintf(stdout,"redshift: z=%g\n",    cmd.xstop);
+		fprintf(stdout,"OmegaM=%g\n",         cmd.om);
+		fprintf(stdout,"h=%g\n",              cmd.h);
+		fprintf(stdout,"b1=%g\n",             cmd.b1);
+		fprintf(stdout,"b2=%g\n",             cmd.b2);
 		fprintf(stdout,"bs2=%g\n",            cmd.bs2);
 		fprintf(stdout,"b3nl=%g\n",           cmd.b3nl);
 		fprintf(stdout,"alpha0=%g\n",         cmd.alpha0);
@@ -177,8 +177,8 @@ stream outparams;
 		fprintf(stdout,"Pshotp=%g\n",         cmd.PshotP);
 		fprintf(stdout,"alpha0shot=%g\n",     cmd.alpha0shot);
 		fprintf(stdout,"alpha2shot=%g\n",     cmd.alpha2shot);
-	}    
-    
+	}
+
 }
 
 #undef parameter_null
@@ -218,7 +218,7 @@ local void startrun_Common(void)
                     error("\nstart_Common: OL not in the format (1 - Om) \n");
                 }
         }
-        
+
     }
 
 
@@ -299,7 +299,7 @@ local void startrun_ParamStat(void)
     if (GetParamStat("gsm_sizeyT") & ARGPARAM)
         cmd.gsm_sizeyT = GetiParam("gsm_sizeyT");
     if (GetParamStat("gsm_NGL") & ARGPARAM)
-        cmd.gsm_NGL = GetiParam("gsm_NGL");       
+        cmd.gsm_NGL = GetiParam("gsm_NGL");
 // Power spectrum table:
     if (GetParamStat("fnamePS") & ARGPARAM)
         cmd.fnamePS = GetParam("fnamePS");
@@ -337,7 +337,7 @@ local void startrun_ParamStat(void)
                     dx1/dx2 : atof(cmd.dxstr));
 	if ( dx2 == 0. )
 		error("\n\nstartrun_ParamStat: deta : deta2 must be finite\n");
-	
+
 	if (GetParamStat("zout") & ARGPARAM)
 		cmd.xstop = GetdParam("zout");
     cmd.eps = 0.0001;
@@ -353,11 +353,11 @@ local void startrun_ParamStat(void)
     if (GetParamStat("nquadSteps") & ARGPARAM)
         cmd.nquadSteps = GetiParam("nquadSteps");
     cmd.ngausslegpoints = 16;  //NOT USED   ;Number of Gauss-Legendre of integration points", ":nglpts
-    cmd.epsquad = 1.0e-6; 
+    cmd.epsquad = 1.0e-6;
 
 // Post processing parameters:
     cmd.postprocessing = FALSE;
-    cmd.options = "";   
+    cmd.options = "";
 }
 
 local void CheckParameters(void)
@@ -430,10 +430,10 @@ local void ReadParameterFile(char *fname)
 
   nt=0;
     SPName(cmd.fnamePS,"fnamePS",100);
-    IPName(cmd.is_PS_input_LCDM,"is_PS_input_LCDM");	
-    RPName(cmd.xstop,"zout");     
+    IPName(cmd.is_PS_input_LCDM,"is_PS_input_LCDM");
+    RPName(cmd.xstop,"zout");
     RPName(cmd.om,"Om");
-    RPName(cmd.h,"h"); 
+    RPName(cmd.h,"h");
 // bias and counterterms
     RPName(cmd.b1,"b1");
     RPName(cmd.b2,"b2");
@@ -445,7 +445,7 @@ local void ReadParameterFile(char *fname)
 // output array params:
     RPName(cmd.smin,"smin");
     RPName(cmd.smax,"smax");
-    IPName(cmd.Ns,"Ns");	
+    IPName(cmd.Ns,"Ns");
 //  q functions:
     IPName(cmd.NqperLogDecade,"NqperLogDecade");
     IPName(cmd.Nk_qFunctionsQuad,"Nk_qFunctionsQuad");
@@ -467,11 +467,11 @@ local void ReadParameterFile(char *fname)
     SPName(cmd.model_paramfile,"modelParamfile",100);
     cmd.mgmodel = "LCDM";
     cmd.fR0 = 1.0e-10;
-    cmd.screening =1.0;     
+    cmd.screening =1.0;
 // DGP:
     cmd.eps_DGP = -1.0;
     cmd.rc_DGP = 1.0;
-    cmd.olstr ="1 - Om"; 
+    cmd.olstr ="1 - Om";
 //
 // Differential equations evolution parameters:
 
@@ -483,7 +483,7 @@ local void ReadParameterFile(char *fname)
     IPName(cmd.nquadSteps,"nquadSteps");
     cmd.integration_method = "rkqs";
     cmd.quadratureMethod = "trapezoid3";
-    cmd.ngausslegpoints = 16; 
+    cmd.ngausslegpoints = 16;
     cmd.epsquad = 1.0e-6;
 // Post processing parameters:
     cmd.postprocessing = FALSE;
@@ -508,7 +508,7 @@ local void ReadParameterFile(char *fname)
 			if(j>=0) {
                 switch(id[j]) {
 					case DOUBLE:
-						*((double*)addr[j])=atof(buf2); 
+						*((double*)addr[j])=atof(buf2);
 						break;
 					case STRING:
 						strcpy(addr[j],buf2);
@@ -517,9 +517,9 @@ local void ReadParameterFile(char *fname)
 						*((int*)addr[j])=atoi(buf2);
 						break;
 					case BOOLEAN:
-						if (strchr("tTyY1", *buf2) != NULL) {          
+						if (strchr("tTyY1", *buf2) != NULL) {
 							*((bool*)addr[j])=TRUE;
-                        } else 
+                        } else
                             if (strchr("fFnN0", *buf2) != NULL)  {
                                 *((bool*)addr[j])=FALSE;
                             } else {
@@ -537,9 +537,9 @@ local void ReadParameterFile(char *fname)
     } else {
         fprintf(stdout,"Parameter file %s not found.\n", fname);
         errorFlag=1;
-        exit(1); 
+        exit(1);
     }
-  
+
     for(i=0;i<nt;i++) {
         if(*tag[i]) {
             fprintf(stdout,
@@ -548,9 +548,9 @@ local void ReadParameterFile(char *fname)
             exit(0);
         }
     }
-#undef DOUBLE 
-#undef STRING 
-#undef INT 
+#undef DOUBLE
+#undef STRING
+#undef INT
 #undef BOOLEAN
 #undef MAXTAGS
 }
@@ -563,7 +563,7 @@ local void PrintParameterFile(char *fname)
 {
     FILE *fdout;
     char buf[200];
-    
+
     sprintf(buf,"%s/%s%s%s",gd.tmpDir,fname,cmd.suffixModel,"-usedvalues");
     if(!(fdout=fopen(buf,"w"))) {
         fprintf(stdout,"error opening file '%s' \n",buf);
@@ -579,8 +579,8 @@ local void PrintParameterFile(char *fname)
 		"%-------------------------------------------------------------------",
 		"%");
 
-	
-		
+
+
         fprintf(fdout,FMTT,"fnamePS",cmd.fnamePS);
         fprintf(fdout,FMTR,"zout",cmd.xstop);
         fprintf(fdout,FMTR,"Om",cmd.om);
@@ -592,20 +592,20 @@ local void PrintParameterFile(char *fname)
         fprintf(fdout,FMTR,"c1eft",cmd.c1eft);
         fprintf(fdout,FMTR,"c2eft",cmd.c2eft);
         fprintf(fdout,FMTR,"sigma2eft",cmd.s2eft);
-        
-	        
+
+
 	fprintf(fdout,FMTR,"smin",cmd.smin);
 	fprintf(fdout,FMTR,"smax",cmd.smax);
 	fprintf(fdout,FMTI,"Ns",cmd.Ns);
-	
+
 	fprintf(fdout,FMTR,"kmin",cmd.kmin);
 	fprintf(fdout,FMTR,"kmax",cmd.kmax);
 	fprintf(fdout,FMTI,"Nk",cmd.Nk);
 	fprintf(fdout,FMTT,"quadratureMethod",cmd.quadratureMethod);
-	
+
 	fprintf(fdout,FMTI,"NqperLogDecade",cmd.NqperLogDecade);
 	fprintf(fdout,FMTI,"Nk_qFunctionsQuad",cmd.Nk_qFunctionsQuad);
-	        
+
 	fprintf(fdout,FMTR,"gsm_width",cmd.gsm_width);
 	fprintf(fdout,FMTI,"gsm_sizeyT",cmd.gsm_sizeyT);
 	fprintf(fdout,FMTI,"gsm_NGL",cmd.gsm_NGL);
@@ -683,7 +683,7 @@ local void InputPSTable(void)
         error("\n\nInputPSTable: nPSTable = %d is absurd\n\n", nPSTabletmp);
 
     PSLCDMtabtmp = (pointPSTableptr) allocate(nPSTabletmp * sizeof(pointPSTable));
-    
+
     fprintf(gd.outlog,"nPSTable : %d\n", nPSTabletmp);
 
     i = 0;
@@ -714,7 +714,7 @@ local void InputPSTable(void)
     x=dvector(1,NPT);
     y=dvector(1,NPT);
     sig=dvector(1,NPT);
-    
+
 // Low-ks of the PS
     fprintf(gd.outlog,"\nAt low-ks of the spectrum...\n");
 
@@ -805,7 +805,7 @@ local void InputPSTable(void)
     PSLCDMtab = (pointPSTableptr) allocate(nPSTable * sizeof(pointPSTable));
     dk = (rlog10(kmx) - rlog10(kmn))/((real)(nPSTable - 1));
     p = PSLCDMtab;
-    
+
     for (i=1; i<=nPSTable; i++) {
         kval = rlog10(kmn) + dk*((real)(i - 1));
         if (rpow(10.0,kval) >= kmin && rpow(10.0,kval) <= kmax)
@@ -854,7 +854,7 @@ local void PSLTable(void)
     pointPSTableptr p, pn;
     int i;
     int rescalePS = 0;
-    
+
 //
     real xstoptmp, Dp0, Dpzout, fac;
 
@@ -866,12 +866,12 @@ local void PSLTable(void)
     gd.xstop = xstoptmp;
     Dpzout = DpFunction(0.); // aa: This was for rescale the input pk redshift, but I removed it
     fprintf(gd.outlog,"\n Dp(%g) = %g\n",cmd.xstop,Dpzout);
-     
+
     //~ fprintf(stdout,"\nzout  = %g", cmd.xstop);
     gd.Dplus=Dpzout/Dp0;
     //~ fprintf(stdout,"\nDplus= %g\n\n", gd.Dplus);//Dpzout/Dp0);
-    
-    
+
+
     if (rescalePS !=0){  // aa: This was for rescale the input pk redshift, but I removed it
 		fac = rsqr(Dpzout/Dp0);
         fprintf(stdout,"Warning: rescaling the redshift with rsqr(Dpzout/Dp0) = %g", fac);
@@ -879,7 +879,7 @@ local void PSLTable(void)
 			PS(p) *= fac;
 		}
 	}
-	
+
     sprintf(namebuf,"%s/%s%s_%s",gd.tmpDir,cmd.fnamePS,cmd.suffixModel,"ext2.dat");
     outstr = stropen(namebuf,"w!");
     for (p=PSLCDMtab; p<PSLCDMtab+nPSTable; p++) {
@@ -901,7 +901,7 @@ local void PSLTable(void)
             kPos(pn) = kPos(p);
             Dpk = DpFunction(kPos(p));
             kPos(pn) = kPos(p);
-            Dpk = DpFunction(kPos(p)); 
+            Dpk = DpFunction(kPos(p));
             // printf("%g ", rsqr(Dpk/Dpkmin));
             PS(pn) = rsqr(Dpk/Dpkmin)*PS(p);
             pn++;
@@ -919,32 +919,33 @@ local void PSLTable(void)
         pPS[i] = PS(pn);
         i++;
     }
-//  
+//
 
     fkT=dvector(1,nPSLT);
-    fkT2 = dvector(1,nPSLT); 
+    fkT2 = dvector(1,nPSLT);
     DplusT=dvector(1,nPSLT);
-    DplusT2 = dvector(1,nPSLT);    
+    DplusT2 = dvector(1,nPSLT);
 
     for (int i = 1; i<=nPSLT; i++) {
         fkT[i] = f_growth(kPS[i]);
         DplusT[i] = DpFunction(kPS[i]);
-    } 
+    }
 
     gd.f0=fkT[1];
 
-   
+
     spline(kPS,pPS,nPSLT,1.0e30,1.0e30,pPS2);
+    spline(kPS,fkT,nPSLT,1.0e30,1.0e30,fkT2);
 
     sprintf(namebuf,"%s/%s%s%s",gd.clptDir,"linear",cmd.suffixModel,".dat");
     outstr = stropen(namebuf,"w!");
- 
-    fprintf(outstr,"# InputPklFile=%s\n", cmd.fnamePS); 
+
+    fprintf(outstr,"# InputPklFile=%s\n", cmd.fnamePS);
     fprintf(outstr,"# z=%g, OmegaM=%g, h=%g\n",
-		cmd.xstop, cmd.om, cmd.h);                    
+		cmd.xstop, cmd.om, cmd.h);
     fprintf(outstr,"%1s%11s%17s%20s%22s",
             "#"," 1.k[h/Mpc]","2.pkl","3.f(k)","4.D+(k)\n");
-   
+
     for (i=1; i<=nPSLT; i++) {
         fprintf(outstr,"%-19.9e %-19.9e %-19.9e %-19.9e\n",
             kPS[i],pPS[i],fkT[i],DplusT[i]);
@@ -970,7 +971,7 @@ local void PSLTableNW(void)
     double *kPSNW;
     double *pPSNW;
     double *pPSNW2;
-    
+
     double *kPSNWtmp;
     double *pPSNWtmp;
     double *pPSNWtmp2;
@@ -986,7 +987,7 @@ local void PSLTableNW(void)
     double *mlogkpkToddcutted;
     double *logkpkToddcutted;
     double *logkpkToddcutted2;
-    
+
     double *preT;
 
     double *logkpkTsave;
@@ -1029,7 +1030,7 @@ local void PSLTableNW(void)
 
     ksmin = 7.0e-5 / cmd.h;
     ksmax = 7.0 / cmd.h;
-    Nks = 65536;            // 2^16 
+    Nks = 65536;            // 2^16
     cutmin = 120;
     cutmax = 240;
 
@@ -1041,7 +1042,7 @@ local void PSLTableNW(void)
     fprintf(gd.outlog," -> PSLTableNW: dk value: %g\n",dk);
 
     logkpkT = dvector(1,Nks);
-    
+
 // THESE VECTOR ARE NOT USED. REMOVE
 //    kPStmp = dvector(1,pmgpt->nPSLT);
 //    pPStmp = dvector(1,pmgpt->nPSLT);
@@ -1051,12 +1052,12 @@ local void PSLTableNW(void)
     logkpkTsave2 = dvector(1,Nks);
     logkpkTeven = dvector(1,Nks/2);
     logkpkTodd = dvector(1,Nks/2);
-    
+
     Nksevencutted = Nks/2 - (cutmax-cutmin)-4;
     Nksoddcutted = Nks/2 - (cutmax-cutmin)-1;
 
     fprintf(gd.outlog," -> PSTableNW : numbers discarded %d %d\n", Nksevencutted, Nksoddcutted);
-    
+
     mlogkpkTevencutted = dvector(1,Nksevencutted);
     logkpkTevencutted = dvector(1,Nksevencutted);
     logkpkTevencutted2 = dvector(1,Nksevencutted);
@@ -1064,7 +1065,7 @@ local void PSLTableNW(void)
     mlogkpkToddcutted = dvector(1,Nksoddcutted);
     logkpkToddcutted = dvector(1,Nksoddcutted);
     logkpkToddcutted2 = dvector(1,Nksoddcutted);
-    
+
     preT = dvector(1,Nks);
 
     kPSNWtmp = dvector(1,Nks);
@@ -1074,7 +1075,7 @@ local void PSLTableNW(void)
     kPSNW = dvector(1,outsize);
     pPSNW = dvector(1,outsize);
     pPSNW2 = dvector(1,outsize);
-        
+
 
     for (i=1; i<=Nks; i++) {
         kval = ksmin + (double)(i-1)*dk;
@@ -1153,18 +1154,18 @@ local void PSLTableNW(void)
     doutk = (rlog10(outkmax) - rlog10(outkmin))/((double)(outsize - 1));
 
     kPSNW8 = kPSNWtmp[8];
-    
+
     //~ fprintf(stdout, "\n Nks=%d, nPSLT=%d, outsize=%d\n",Nks,nPSLT,outsize);
-    
+
     pPS_nw = dvector(1,nPSLT);   //nuevo
     pPS2_nw = dvector(1,nPSLT); //nuevo
-    
-    
+
+
     for (i=1; i<=outsize; i++) {
-		
+
         ki= kPS[i];
 
-		if (ki <= 0.001) {	
+		if (ki <= 0.001) {
 			PSL       = Interpolation_local(kPSNW8, kPS, pPS, nPSLT, pPS2);
 			PNWval    = Interpolation_local(kPSNW8, kPSNWtmp, pPSNWtmp, Nks, pPSNWtmp2);
 			PSLkval   = Interpolation_local(ki, kPS, pPS, nPSLT, pPS2);
@@ -1172,17 +1173,17 @@ local void PSLTableNW(void)
             pPS_nw[i] = PSLkval/(DeltaAppf + 1);
 		} else if (ki > 0.001 & ki< ksmax){
                 pPS_nw[i] = Interpolation_local(ki, kPSNWtmp, pPSNWtmp, Nks, pPSNWtmp2);
-        } else {     
+        } else {
                 pPS_nw[i] = Interpolation_local(ki, kPS, pPS, nPSLT, pPS2);
         }
 
 
     }
 
-    
 
-        
-        
+
+
+
     free_dvector(pPSNW2,1,outsize);
     free_dvector(pPSNW ,1,outsize);
     free_dvector(kPSNW ,1,outsize);
@@ -1222,7 +1223,7 @@ local void PSLTableNW(void)
 real Interpolation_local(real k, double kPS[], double pPS[], int nPS, double pPS2[])
 {
     real psftmp;
-    
+
 //    if ( k < kPS[1] || k > kPS[nPS] )
 //        fprintf(stdout,"\n\nInterpolation_nr_local: warning! :: k is out of range... %g %g %g\n",k, kPS[1], kPS[nPS]);
 
@@ -1246,10 +1247,10 @@ local void GaussLegendrePoints(void)
 {
     double dx,ss,xval;
     real x1=-1.0, x2=1.0;
-    
+
     int i;
     double xx=0.0;
-    
+
     pGL = (global_GL_ptr) allocate(sizeof(global_GL));
 
     nGL(pGL) = cmd.ngausslegpoints;
@@ -1275,11 +1276,11 @@ global  real psInterpolation_nr(real k, double kPS[], double pPS[], int nPS)
 //    pointPSTableptr pf, pi;
     real psftmp;
 //    real dps;
-    
+
 //    pi = PSLCDMtab;
 //    pf = PSLCDMtab+nPSTable-1;
-    
+
     splint(kPS,pPS,pPS2,nPS,k,&psftmp);
-    
+
     return (psftmp);
 }
