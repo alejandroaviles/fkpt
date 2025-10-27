@@ -44,7 +44,7 @@ alpha0shot, alpha2shot, pshotp = 0.08, -8.0, 5000.0
 nuis = [b1,b2,bs2,b3nl,alpha0,alpha2,alpha4,ctilde,alpha0shot,alpha2shot,pshotp]
 
 # --- ISiTGR setup: MG results ---
-mu0=0.5
+mu0=0.0
 pars = isitgr.CAMBparams()
 pars.set_cosmology(H0=h*100, ombh2=ombh2, omch2=omch2, mnu=93.14*omnuh2,
                    MG_parameterization="muSigma", mu0=mu0)
@@ -81,32 +81,44 @@ assert np.allclose(kh_fk, ks)
 smallk = ks < 3e-3
 f0 = float(np.mean(fk_lin[smallk])) if np.any(smallk) else float(fk_lin[0])
 
-# Base FKPT params (shared)
+# --- cap k to 0.3 h/Mpc everywhere ---
+KMAX = 0.3
+
+# restrict to k <= 0.3
+mask = ks <= KMAX
+ks_cut   = ks[mask]
+pk_cut   = pk_lin[mask]
+fk_cut   = fk_lin[mask]
+
+# large-scale limit f0 computed on the cut grid (unchanged logic)
+smallk = ks_cut < 3e-3
+f0 = float(np.mean(fk_cut[smallk])) if np.any(smallk) else float(fk_cut[0])
+
+# Base FKPT params (share)
 base = dict(
     z=z_pk, Om=Om, h=h,
     b1=b1, b2=b2, bs2=bs2, b3nl=b3nl,
     alpha0=alpha0, alpha2=alpha2, alpha4=alpha4, ctilde=ctilde,
     PshotP=pshotp, alpha0shot=alpha0shot, alpha2shot=alpha2shot,
-    kmin=float(max(1e-3, ks.min())),
-    kmax=float(min(ks.max(), 0.5)),
-    Nk=int(min(ks.size, 240)),
-    nquadSteps=300, chatty=0,
-    model="HDKI",    # must match models.c
+    kmin=float(max(1e-3, ks_cut.min())),
+    kmax=float(min(ks_cut.max(), KMAX)),
+    Nk=int(min(ks_cut.size, 240)),
+    nquadSteps=300, chatty=1,
+    model="HDKI",
     mg_variant="mu_OmDE",
-    mu0=mu0
+    mu0=mu0,
 )
 
-# evaluation grid
+# evaluation grid stays within [kmin, 0.3]
 k_eval = np.linspace(base["kmin"], base["kmax"], base["Nk"])
 
-print("nPSLT from pyfkpt:", ks.shape)
 # ==========================
 # (4) MG (unrescaled PS, external f(k), EdS kernels)
 # ==========================
 p_EdS = deepcopy(base)
 p_EdS["rescale_PS"] = False
-p_EdS["use_beyond_eds_kernels"] = False  # <---- EdS kernels
-tables_MG_EdS = pyfkpt.compute_multipoles(k=ks, pk=pk_lin, fk=fk_lin.copy(), f0=f0, **p_EdS)
+p_EdS["use_beyond_eds_kernels"] = False
+tables_MG_EdS = pyfkpt.compute_multipoles(k=ks_cut, pk=pk_cut, fk=fk_cut, f0=f0, **p_EdS)
 k_MG_EdS, P0_MG_EdS, P2_MG_EdS, P4_MG_EdS = pyfkpt.rsd_multipoles(
     k=k_eval, nuis=nuis, z=z_pk, Om=Om, ap=False, tables=tables_MG_EdS
 )
@@ -116,8 +128,8 @@ k_MG_EdS, P0_MG_EdS, P2_MG_EdS, P4_MG_EdS = pyfkpt.rsd_multipoles(
 # ==========================
 p_bEdS = deepcopy(base)
 p_bEdS["rescale_PS"] = False
-p_bEdS["use_beyond_eds_kernels"] = True  # <---- beyond EdS kernels
-tables_MG_beyond = pyfkpt.compute_multipoles(k=ks, pk=pk_lin, fk=fk_lin.copy(), f0=f0, **p_bEdS)
+p_bEdS["use_beyond_eds_kernels"] = True
+tables_MG_beyond = pyfkpt.compute_multipoles(k=ks_cut, pk=pk_cut, fk=fk_cut, f0=f0, **p_bEdS)
 k_MG_beyond, P0_MG_beyond, P2_MG_beyond, P4_MG_beyond = pyfkpt.rsd_multipoles(
     k=k_eval, nuis=nuis, z=z_pk, Om=Om, ap=False, tables=tables_MG_beyond
 )

@@ -610,6 +610,11 @@ global_kFs ki_functions(real ki, double kPKL[], double pPKL[], int nPKLT, double
     real A, ApOverf0, CFD3, CFD3p;
     
     
+    if (cmd.chatty==1) {
+        fprintf(stdout,
+         "\nA_LCDM=%g,  KAp_LCDM=%g,  KR1_LCDM=%g,  KR1p_LCDM=%g,  f0=%g\n",
+         KA_LCDM, KAp_LCDM, KR1_LCDM, KR1p_LCDM, gd.f0);
+      }
     if (gd.kernels_beyond_eds == 1) {
 		A=KA_LCDM; ApOverf0 = KAp_LCDM/gd.f0;
 		CFD3 = KR1_LCDM;  CFD3p = KR1p_LCDM;
