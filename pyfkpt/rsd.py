@@ -146,8 +146,13 @@ def get_pkmu(k, mu, nuis, *, z, Om, ap=False, Omfid=None, tables=None):
 
     k = np.asarray(k, float)
     mu = np.asarray(mu, float)
-    k = k[np.isfinite(k) & (k > 0)]
     mu = mu[np.isfinite(mu) & (np.abs(mu) <= 1)]
+    # Expect k to be 2D: shape (Nk, Nmu)
+    if k.ndim == 1:
+        # expand to 2D for backward compatibility
+        k = np.tile(k[:, None], (1, len(mu)))
+    elif k.shape[1] != len(mu):
+        raise ValueError("Shape mismatch: k should be (Nk, Nmu) to match len(mu).")
 
     q_perp = q_par = 1.0
     if ap:
@@ -156,12 +161,12 @@ def get_pkmu(k, mu, nuis, *, z, Om, ap=False, Omfid=None, tables=None):
         q_perp = angular_diameter_distance(Om, z) / angular_diameter_distance(Omfid, z)
         q_par  = hubble(Omfid, z) / hubble(Om, z)
 
-    T, TN = _table_interp_bundle(k)
-
     # 2D P(k, mu)
-    pkmu = np.zeros((len(k), len(mu)), dtype=float)
+    pkmu = np.zeros((len(k[:,0]), len(mu)), dtype=float)
     for i, mui in enumerate(mu):
-        pkmu[:, i] = _pir_term(k, mui, nuis, T, TN, ap, q_perp, q_par)
+        # Interpolate tables for each k[:, i]
+        T, TN = _table_interp_bundle(k[:, i])
+        pkmu[:, i] = _pir_term(k[:, i], mui, nuis, T, TN, ap, q_perp, q_par)
 
     return pkmu
 
