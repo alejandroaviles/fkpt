@@ -67,15 +67,6 @@ def compute_multipoles(*, k, pk, **params):
     if isinstance(mdl, str) and mdl.lower() in ("hdki", "hdk", "horndeski"):
         params["model"] = "HDKI"
 
-    # sensible auto-select if model not given
-    if "model" not in params:
-        if any(k in params for k in ("mg1", "mg2", "mg3", "mg4", "mg5")):
-            params["model"] = "HDKI"  # your C switch expects "HDKI"
-        elif "fR0" in params:
-            params["model"] = "HS"    # (or "fR", depending on your core)
-        else:
-            params["model"] = "LCDM"
-
     # normalize arrays
     k  = np.ascontiguousarray(k,  dtype=np.float64)
     pk = np.ascontiguousarray(pk, dtype=np.float64)
