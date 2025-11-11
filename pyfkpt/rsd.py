@@ -101,13 +101,10 @@ def compute_multipoles(*, k, pk, **params):
 
     return _C.compute_multipoles(k=k, pk=pk, **params)
 
-    # Prakhar needed this for desilike!
-
-import numpy as np
+# Prakhar needed this for desilike!
 import jax
 import jax.numpy as jnp
 
-# ---------- Robust "am I tracing?" ----------
 def _contains_tracer(x):
     """True if x (recursively) contains a JAX Tracer."""
     if isinstance(x, jax.core.Tracer):
