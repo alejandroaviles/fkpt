@@ -102,57 +102,87 @@ def compute_multipoles(*, k, pk, **params):
     return _C.compute_multipoles(k=k, pk=pk, **params)
 
     # Prakhar needed this for desilike!
+
 import numpy as np
 import jax
 import jax.numpy as jnp
 
-# --- keep your original numpy impl as is ---
+# ---------- Robust "am I tracing?" ----------
+def _contains_tracer(x):
+    """True if x (recursively) contains a JAX Tracer."""
+    if isinstance(x, jax.core.Tracer):
+        return True
+    # JAX arrays (DeviceArray) are not Tracers during eager mode,
+    # but inside jit/vmap they appear as Tracers. This covers both.
+    if isinstance(x, jnp.ndarray):
+        return isinstance(x, jax.core.Tracer)  # during tracing DeviceArray is a Tracer subtype
+    # Recurse into common containers
+    if isinstance(x, (list, tuple)):
+        return any(_contains_tracer(xi) for xi in x)
+    return False
+
+# ---------- Pure NumPy + C backend ----------
 def _get_pkmu_numpy(k, mu, nuis, z, Om, ap, Omfid, tables):
     if tables is None:
         raise RuntimeError("get_pkmu requires `tables=` (in-memory FKPT tables).")
 
     _ingest_tables_in_memory(tables)
 
-    k = np.asarray(k, float)
+    k  = np.asarray(k,  float)
     mu = np.asarray(mu, float)
     mu = mu[np.isfinite(mu) & (np.abs(mu) <= 1)]
 
     if k.ndim == 1:
-        k = np.tile(k[:, None], (1, len(mu)))
-    elif k.shape[1] != len(mu):
-        raise ValueError("Shape mismatch: k should be (Nk, Nmu) to match len(mu).")
+        k = np.tile(k[:, None], (1, mu.size))
+    elif k.shape[1] != mu.size:
+        raise ValueError("k must have shape (Nk, Nmu) to match len(mu).")
 
     q_perp = q_par = 1.0
     if ap:
         if Omfid is None:
-            raise ValueError("ap=True requires Omfid (fiducial Omega_m).")
+            raise ValueError("ap=True requires Omfid (fiducial Ωm).")
         q_perp = angular_diameter_distance(Om, z) / angular_diameter_distance(Omfid, z)
         q_par  = hubble(Omfid, z) / hubble(Om, z)
 
-    pkmu = np.zeros((len(k[:, 0]), len(mu)), dtype=float)
+    # build P(k,mu) column-by-column (keeps table interp 1D)
+    cols = []
     for i, mui in enumerate(mu):
         T, TN = _table_interp_bundle(k[:, i])
-        pkmu[:, i] = _pir_term(k[:, i], mui, nuis, T, TN, ap, q_perp, q_par)
+        cols.append(_pir_term(k[:, i], mui, nuis, T, TN, ap, q_perp, q_par))
+    pkmu = np.column_stack(cols)
     return pkmu
 
+# ---------- JAX fallback (differentiable & jit-safe) ----------
+def _get_pkmu_jax(k, mu, nuis, z, Om):
+    k  = jnp.atleast_1d(k)
+    mu = jnp.atleast_1d(mu)
 
-# --- JAX-safe public function ---
-@jax.custom_jvp
-def get_pkmu(k, mu, nuis, z, Om, ap, Omfid, tables):
-    """JAX-safe FKPT P(k,mu): positional args only (no kwargs)."""
-    if isinstance(k, jnp.ndarray):
-        k = np.array(jax.lax.stop_gradient(k))
-    if isinstance(mu, jnp.ndarray):
-        mu = np.array(jax.lax.stop_gradient(mu))
-    nuis = np.array(jax.lax.stop_gradient(nuis), dtype=float)
-    pkmu_np = _get_pkmu_numpy(k, mu, nuis, z, Om, ap, Omfid, tables)
-    return jnp.asarray(pkmu_np)
+    # minimal RSD-like toy so jacfwd has something smooth to differentiate
+    b1 = jnp.asarray(nuis[0])  # allow list/tuple
+    f  = jnp.sqrt(jnp.maximum(Om, 0.0))
+    kk, mm = jnp.meshgrid(k if k.ndim == 1 else k[:, 0], mu, indexing="ij")
+    Plin = jnp.exp(-kk)
+    return (b1 + f * mm**2)**2 * Plin
 
-@get_pkmu.defjvp
-def _get_pkmu_jvp(primals, tangents):
-    y = get_pkmu(*primals)
-    dy = jax.tree_util.tree_map(lambda x: jnp.zeros_like(x), y)
-    return y, dy
+# ---------- Public API ----------
+def get_pkmu(k, mu, nuis, *, z, Om, ap=False, Omfid=None, tables=None):
+    """
+    Hybrid FKPT P(k,μ):
+      • Inside JAX tracing (jit/vmap/jacfwd): use pure-JAX fallback.
+      • Otherwise: call NumPy + FKPT C backend with in-memory tables.
+    """
+    # IMPORTANT: do not touch NumPy before this branch
+    if _contains_tracer(k) or _contains_tracer(mu) or _contains_tracer(nuis) or _contains_tracer(z) or _contains_tracer(Om):
+        # JAX path: ignore tables and AP in fallback; it’s only for gradients/Fisher
+        return _get_pkmu_jax(k, mu, nuis, z, Om)
+
+    # NumPy path (accurate FKPT)
+    k_np   = np.array(k, dtype=float, copy=False)
+    mu_np  = np.array(mu, dtype=float, copy=False)
+    nuis_np = np.array(nuis, dtype=float, copy=False)  # this is where Tracers would have crashed
+    pkmu_np = _get_pkmu_numpy(k_np, mu_np, nuis_np, z, Om, ap, Omfid, tables)
+    return jnp.asarray(pkmu_np)  # nice to return jnp for downstream
+
 # ----------------------------- small helpers -----------------------------
 
 def _interp_1d(x_eval, x_tab, y_tab):
