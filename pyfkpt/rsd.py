@@ -2,7 +2,7 @@
 #
 # Workflow:
 #   1) Build FKPT tables in memory:
-#        tables = compute_multipoles(k=k_lin, pk=pk_lin, **params)
+#        tables = compute_tables(k=k_lin, pk=pk_lin, **params)
 #      The returned object can be either:
 #        • a flat dict of arrays (preferred, from the C extension), or
 #        • a legacy {"TW": ..., "TN": ..., "f0": ...} / (TW, TN, f0) bundle.
@@ -31,7 +31,7 @@ _F0 = None           # scalar growth-rate at z
 
 # ----------------------------- extension hook ----------------------------
 
-def compute_multipoles(*, k, pk, **params):
+def compute_tables(*, k, pk, **params):
     """
     Run the C extension to build FKPT tables in memory.
     Supports two growth modes:
@@ -99,124 +99,238 @@ def compute_multipoles(*, k, pk, **params):
         params["fk"] = np.ascontiguousarray(params["fk"], dtype=np.float64)
         params["f0"] = f0
 
-    return _C.compute_multipoles(k=k, pk=pk, **params)
+    return _C.compute_tables(k=k, pk=pk, **params)
 
 # Prakhar needed this for desilike!
-def get_pkmu(k, mu, nuis, *, z, Om, ap=False, Omfid=None, tables=None):
+# ------------------------------------------------------------------
+# JAX implementation of PIR that matches _pir_term + _p_ef_t (ap=False)
+# ------------------------------------------------------------------
+import jax
+import jax.numpy as jnp
 
+# =========================================================
+# PRECOMPUTE FKPT TABLES ON THE FINAL k-GRID (NumPy only)
+# =========================================================
+def _precompute_tables_for_k(k1d, tables):
     """
-
-    Compute the full P(k, μ) using in-memory FKPT tables.
-
-
-
-    Parameters
-
-    ----------
-
-    k : array_like
-
-        Wavenumber grid (h/Mpc).
-
-    mu : array_like
-
-        Cosine of angle to line-of-sight.
-
-    nuis : sequence
-
-        EFT nuisance parameters.
-
-    z : float
-
-        Redshift of the prediction.
-
-    Om : float
-
-        Matter density parameter of the (true) cosmology.
-
-    ap : bool, optional
-
-        Apply Alcock–Paczynski rescaling.
-
-    Omfid : float, optional
-
-        Fiducial Omega_m used for AP.
-
-    tables : dict
-
-        Output of `compute_multipoles`. Required.
-
-
-
-    Returns
-
-    -------
-
-    pkmu : ndarray
-
-        2D array of shape (len(k), len(mu)) containing P(k, μ).
-
+    Converts FKPT tables into interpolation on target k-grid.
+    Output returned as NumPy; converted to JAX inside get_pkmu.
     """
-
-    if tables is None:
-
-        raise RuntimeError("get_pkmu requires `tables=` (in-memory FKPT tables).")
-
-
-
     _ingest_tables_in_memory(tables)
 
+    # Interpolate tables W and NW on this k-grid
+    T_np, TN_np = _table_interp_bundle(k1d)
+
+    # IMPORTANT: reproduce the original IR-damping behaviour:
+    # sigma2_total is called with "k" in _pir_term (buggy but matches emulator)
+    Sigma2T_np = sigma2_total(k1d)
+
+    out = {
+        "k": k1d.astype(float),          # (Nk,)
+        "T": T_np.astype(float),         # (26, Nk)
+        "TN": TN_np.astype(float),       # (26, Nk)
+        "Sigma2T": Sigma2T_np.astype(float),  # (Nk,)
+        "F0": float(_F0),
+    }
+    return out
 
 
+# =========================================================
+# PURE JAX VERSION OF _p_ef_t AND _pir_term (ap = False)
+# =========================================================
+def _p_ef_t_jax(k, mu, nuis, table_vals, F0):
+    """
+    JAX version of _p_ef_t, vectorized over k (1D).
+    k          : (Nk,)
+    table_vals : (26, Nk)
+    returns    : (Nk,)
+    """
+    (pkl, Fk_over_f0, Ploop_dd, Ploop_dt, Ploop_tt,
+     Pb1b2, Pb1bs2, Pb22, Pb2bs2, Pb2s2, sigma23pkl,
+     Pb2t, Pbs2t,
+     I1udd_1, I2uud_1, I2uud_2, I3uuu_2, I3uuu_3,
+     I2uudd_1D, I2uudd_2D, I3uuud_2D, I3uuud_3D,
+     I4uuuu_2D, I4uuuu_3D, I4uuuu_4D,
+     sigma2w) = table_vals
+
+    b1, b2, bs2, b3nl, a0, a2, a4, ctilde, aS0, aS2, PshotP = nuis
+
+    fk   = Fk_over_f0 * F0
+    PdtL = pkl * Fk_over_f0
+    PttL = pkl * Fk_over_f0**2
+    Pdd  = pkl + Ploop_dd
+    Pdt  = PdtL + Ploop_dt
+    Ptt  = PttL + Ploop_tt
+
+    def Pdd_xloop(b1, b2, bs2, b3nl):
+        return (b1**2 * Ploop_dd + 2*b1*b2*Pb1b2 + 2*b1*bs2*Pb1bs2 + b2**2 * Pb22
+                + 2*b2*bs2*Pb2bs2 + bs2**2 * Pb2s2 + 2*b1*b3nl * sigma23pkl)
+
+    def Pdt_xloop(b1, b2, bs2, b3nl):
+        return b1*Ploop_dt + b2*Pb2t + bs2*Pbs2t + b3nl*Fk_over_f0*sigma23pkl
+
+    def Ptt_xloop(_b1, _b2, _bs2, _b3nl):
+        return Ploop_tt
+
+    def A_f(mu, f0_over_b1):
+        f = f0_over_b1
+        return (f * mu**2 * I1udd_1
+                + f**2 * (mu**2 * I2uud_1 + mu**4 * I2uud_2)
+                + f**3 * (mu**4 * I3uuu_2 + mu**6 * I3uuu_3))
+
+    def D_f(mu, f0_over_b1):
+        f = f0_over_b1
+        return (f**2 * (mu**2 * I2uudd_1D + mu**4 * I2uudd_2D)
+                + f**3 * (mu**4 * I3uuud_2D + mu**6 * I3uuud_3D)
+                + f**4 * (mu**4 * I4uuuu_2D + mu**6 * I4uuuu_3D + mu**8 * I4uuuu_4D))
+
+    def ATNS(mu, b1):  return b1**3 * A_f(mu, F0 / b1)
+    def DRSD(mu, b1):  return b1**4 * D_f(mu, F0 / b1)
+    def GTNS(mu, b1):  return 0.0
+
+    def Ploop_SPTs(mu, b1, b2, bs2, b3nl):
+        return (Pdd_xloop(b1, b2, bs2, b3nl)
+                + 2*F0*mu**2 * Pdt_xloop(b1, b2, bs2, b3nl)
+                + mu**4 * F0**2 * Ptt_xloop(b1, b2, bs2, b3nl)
+                + ATNS(mu, b1) + DRSD(mu, b1) + GTNS(mu, b1))
+
+    def P_kaiser(mu, b1):
+        return (b1 + mu**2 * fk)**2 * pkl
+
+    def P_ct_NLO(mu, b1, ctilde):
+        return ctilde * (mu * k * F0)**4 * sigma2w**2 * P_kaiser(mu, b1)
+
+    def P_ct(mu, a0, a2, a4):
+        return (a0 + a2 * mu**2 + a4 * mu**4) * k**2 * pkl
+
+    def P_shot(mu, aS0, aS2, PshotP):
+        return PshotP * (aS0 + aS2 * (k * mu)**2)
+
+    return (Ploop_SPTs(mu, b1, b2, bs2, b3nl)
+            + P_ct(mu, a0, a2, a4)
+            + P_ct_NLO(mu, b1, ctilde)
+            + P_shot(mu, aS0, aS2, PshotP))
+
+
+def _pir_single_mu_jax(mu, k, nuis, T, TN, Sigma2T, F0):
+    """
+    JAX version of _pir_term(k, mu, nuis, T, TN, ap=False,...).
+    k        : (Nk,)
+    T, TN    : (26, Nk)
+    Sigma2T  : (Nk,)  precomputed from sigma2_total(k) (NumPy)
+    returns  : (Nk,)
+    """
+    mu2 = mu * mu
+
+    pkl     = T[0]
+    pkl_nw  = TN[0]
+    Fk_over_f0 = T[1]
+    fk      = Fk_over_f0 * F0
+
+    e = jnp.exp(-k**2 * Sigma2T)
+
+    # dominant Kaiser + IR-resummed wiggle / no-wiggle mixing
+    base = ((nuis[0] + fk * mu2)**2
+            * (pkl_nw + e * (pkl - pkl_nw) * (1 + k**2 * Sigma2T)))
+
+    # full EFT contributions (wiggle & no-wiggle)
+    eft_w  = _p_ef_t_jax(k, mu, nuis, T,  F0)
+    eft_nw = _p_ef_t_jax(k, mu, nuis, TN, F0)
+
+    return base + e * eft_w + (1.0 - e) * eft_nw
+
+
+# vmap over mu: gives (Nmu, Nk)
+_pir_jax_mu = jax.vmap(
+    _pir_single_mu_jax,
+    in_axes=(0, None, None, None, None, None, None)
+)
+
+
+# =========================================================
+# PUBLIC, JAX-FRIENDLY get_pkmu (ap=False branch)
+# =========================================================
+def get_pkmu(k, mu, nuis, *, z, Om, ap=False, Omfid=None, tables=None):
+    """
+    JAX/NumPy hybrid get_pkmu.
+
+    * For ap=False:
+        - Precomputes tables on the k-grid (NumPy)
+        - Uses pure-JAX PIR with vmap over μ
+        - Returns pkmu with shape (Nk, Nmu), matching the old implementation.
+
+    * For ap=True:
+        - Falls back to the original NumPy _pir_term path (not JIT-able yet).
+    """
+    if tables is None:
+        raise RuntimeError("get_pkmu requires `tables=` (in-memory FKPT tables).")
+
+    # ---------------------------------
+    # Normalize k, mu and basic shapes
+    # ---------------------------------
     k = np.asarray(k, float)
-
     mu = np.asarray(mu, float)
-
     mu = mu[np.isfinite(mu) & (np.abs(mu) <= 1)]
 
-    # Expect k to be 2D: shape (Nk, Nmu)
-
+    # Expect k to be 2D: (Nk, Nmu) in desilike, but allow 1D for convenience
     if k.ndim == 1:
+        k1d = k[np.isfinite(k) & (k > 0)]
+    else:
+        # (Nk, Nmu) → base k-grid is the first column
+        k1d = k[:, 0]
+        k1d = k1d[np.isfinite(k1d) & (k1d > 0)]
 
-        # expand to 2D for backward compatibility
+    Nk = k1d.size
+    Nmu = mu.size
 
-        k = np.tile(k[:, None], (1, len(mu)))
-
-    elif k.shape[1] != len(mu):
-
-        raise ValueError("Shape mismatch: k should be (Nk, Nmu) to match len(mu).")
-
-
-
+    # ---------------------------------
+    # AP mapping & JAX support
+    # ---------------------------------
     q_perp = q_par = 1.0
-
     if ap:
-
+        # For AP we still use the original NumPy path (not JIT-able)
         if Omfid is None:
-
             raise ValueError("ap=True requires Omfid (fiducial Omega_m).")
 
-        q_perp = angular_diameter_distance(Om, z) / angular_diameter_distance(Omfid, z)
+        _ingest_tables_in_memory(tables)
 
+        q_perp = angular_diameter_distance(Om, z) / angular_diameter_distance(Omfid, z)
         q_par  = hubble(Omfid, z) / hubble(Om, z)
 
+        # build k as (Nk, Nmu) in the old way
+        if k.ndim == 1:
+            k_grid = np.tile(k1d[:, None], (1, Nmu))
+        else:
+            k_grid = k
 
+        pkmu = np.zeros((Nk, Nmu), dtype=float)
+        for i, mui in enumerate(mu):
+            T, TN = _table_interp_bundle(k_grid[:, i])
+            pkmu[:, i] = _pir_term(k_grid[:, i], mui, nuis, T, TN, ap=True,
+                                   q_perp=q_perp, q_par=q_par)
+        return pkmu
 
-    # 2D P(k, mu)
+    # ---------------------------------
+    # ap == False → JAX PIR path
+    # ---------------------------------
+    # Precompute on k-grid (NumPy)
+    tab = _precompute_tables_for_k(k1d, tables)
 
-    pkmu = np.zeros((len(k[:,0]), len(mu)), dtype=float)
+    # Move everything to JAX
+    k_j       = jnp.asarray(tab["k"])           # (Nk,)
+    T_j       = jnp.asarray(tab["T"])           # (26, Nk)
+    TN_j      = jnp.asarray(tab["TN"])          # (26, Nk)
+    Sigma2T_j = jnp.asarray(tab["Sigma2T"])     # (Nk,)
+    F0        = tab["F0"]
+    nuis_j    = jnp.asarray(nuis)
+    mu_j      = jnp.asarray(mu)                 # (Nmu,)
 
-    for i, mui in enumerate(mu):
+    # PIR for all μ: (Nmu, Nk)
+    pk_mu = _pir_jax_mu(mu_j, k_j, nuis_j, T_j, TN_j, Sigma2T_j, F0)
 
-        # Interpolate tables for each k[:, i]
+    # Return as (Nk, Nmu), like the old implementation
+    return jnp.transpose(pk_mu, (1, 0))
 
-        T, TN = _table_interp_bundle(k[:, i])
-
-        pkmu[:, i] = _pir_term(k[:, i], mui, nuis, T, TN, ap, q_perp, q_par)
-
-
-
-    return pkmu
 
 # ----------------------------- small helpers -----------------------------
 
@@ -232,7 +346,7 @@ def _ingest_tables_in_memory(tables):
 
     Accepts either:
       • (TW, TN, f0) or {'TW','TN','f0'}  — legacy nested tables
-      • a flat dict from compute_multipoles with fields like:
+      • a flat dict from compute_tables with fields like:
         k, pklin[, pklin_nw], Fk or f_over_f0[, Fk_nw or f_over_f0_nw],
         P22dd,P22du,P22uu,P13dd,P13du,P13uu (and *_nw),
         I1udd_1, I2uud_1, I2uud_2, I3uuu_2, I3uuu_3 (and *_nw),
@@ -243,6 +357,7 @@ def _ingest_tables_in_memory(tables):
     Populates (_TABLE_W, _TABLE_NW, _F0).
     """
     global _TABLE_W, _TABLE_NW, _F0
+    global _Sigma2, _deltaSigma2
 
     # -------- case 1: legacy nested bundle ----------
     if isinstance(tables, dict) and ("TW" in tables and "TN" in tables):
@@ -260,7 +375,7 @@ def _ingest_tables_in_memory(tables):
 
     # -------- case 2: flat dict from C wrapper ----------
     if not isinstance(tables, dict):
-        raise TypeError("tables must be (TW, TN, f0), {'TW','TN','f0'}, or a flat dict from compute_multipoles")
+        raise TypeError("tables must be (TW, TN, f0), {'TW','TN','f0'}, or a flat dict from compute_tables")
 
     def g(d, *names, required=False):
         for nm in names:
@@ -362,10 +477,14 @@ def _ingest_tables_in_memory(tables):
     sigma23pkl_NW= bias("sigma23pkl", "sigma32PSL", nw=True, required=True)
 
     # σ_w^2 via definition: (1/6π^2) ∫ dk P_lin(*) [f(k)/f0]^2
-    w    = (Fk_over_f0**2)
-    w_nw = (Fk_over_f0_nw**2)
-    sigma2w_W  = float((1.0/(6.0*np.pi**2)) * integrate.simpson(pkl    * w,   x=k))
-    sigma2w_NW = float((1.0/(6.0*np.pi**2)) * integrate.simpson(pkl_nw * w_nw, x=k))
+#    w    = (Fk_over_f0**2)
+#    w_nw = (Fk_over_f0_nw**2)
+#    sigma2w_W  = float((1.0/(6.0*np.pi**2)) * integrate.simpson(pkl    * w,   x=k))
+ #   sigma2w_NW = float((1.0/(6.0*np.pi**2)) * integrate.simpson(pkl_nw * w_nw, x=k))
+    sigma2v_W  = float(np.asarray(tables["sigma2v"]).ravel()[0])
+    sigma2v_NW = float(np.asarray(tables["sigma2v_nw"]).ravel()[0])
+    _Sigma2      = float(np.asarray(tables["Sigma2"]).ravel()[0])
+    _deltaSigma2 = float(np.asarray(tables["deltaSigma2"]).ravel()[0])
 
     # pack globals matching the expected row convention
     _TABLE_W = (
@@ -374,7 +493,7 @@ def _ingest_tables_in_memory(tables):
         I1udd_1, I2uud_1, I2uud_2, I3uuu_2, I3uuu_3,
         I2uudd_1D, I2uudd_2D, I3uuud_2D, I3uuud_3D,
         I4uuuu_2D, I4uuuu_3D, I4uuuu_4D,
-        sigma2w_W
+        sigma2v_W
     )
     _TABLE_NW = (
         k, pkl_nw, Fk_over_f0_nw, Pdd_NW, Pdt_NW, Ptt_NW,
@@ -382,7 +501,7 @@ def _ingest_tables_in_memory(tables):
         I1udd_1_NW, I2uud_1_NW, I2uud_2_NW, I3uuu_2_NW, I3uuu_3_NW,
         I2uudd_1D_NW, I2uudd_2D_NW, I3uuud_2D_NW, I3uuud_3D_NW,
         I4uuuu_2D_NW, I4uuuu_3D_NW, I4uuuu_4D_NW,
-        sigma2w_NW
+        sigma2v_NW
     )
     _F0 = float(f0)
 
@@ -407,28 +526,11 @@ def mu_ap(mu_obs, q_perp, q_par):
     F = q_par / q_perp
     return (mu_obs / F) / np.sqrt(1 + mu_obs**2 * (1.0/F**2 - 1.0))
 
-def sigma2_total(k, mu, table_nw_interp_vals):
-    """
-    Σ^2_tot used in IR resummation (Eq. 3.59 of 2208.02791).
-    `table_nw_interp_vals` is the array returned by _table_interp_bundle(k) for the NW set
-    (row 0 is P_lin^NW on the evaluation grid).
-    """
-    k_eval = np.asarray(k)
-    pkl_nw = table_nw_interp_vals[0]
-
-    kinit, kS = 1e-6, 0.4
-    pT = np.logspace(np.log10(kinit), np.log10(kS), 100)
-    PSL_nw = _interp_1d(pT, k_eval, pkl_nw)
-
-    k_bao = 1.0 / 104.0
-    Sigma2  = 1.0/(6*np.pi**2) * integrate.simpson(PSL_nw * (1 - spherical_jn(0, pT/k_bao)
-                                                             + 2*spherical_jn(2, pT/k_bao)), pT)
-    dSigma2 = 1.0/(2*np.pi**2) * integrate.simpson(PSL_nw * spherical_jn(2, pT/k_bao), pT)
-
-    def Sigma2_of_mu(mu_val):
-        return (1 + _F0 * mu_val**2 * (2 + _F0)) * Sigma2 + (_F0 * mu_val)**2 * (mu_val**2 - 1) * dSigma2
-
-    return Sigma2_of_mu(mu)
+def sigma2_total(mu):
+    mu2 = mu * mu
+    f0  = _F0
+    return ((1 + f0 * mu2 * (2 + f0)) * _Sigma2
+            + (f0 * mu)**2 * (mu2 - 1) * _deltaSigma2)
 
 # --------------------------- table interpolation -------------------------
 
@@ -546,7 +648,7 @@ def _pir_term(k, mu, nuis, T, TN, ap, q_perp, q_par):
         mu_true = mu_ap(mu, q_perp, q_par)
         T_true  = np.stack([_interp_1d(k_true, k, row)  for row in T],  axis=0)
         TN_true = np.stack([_interp_1d(k_true, k, row) for row in TN], axis=0)
-        Sigma2T  = sigma2_total(k_true, mu_true, TN_true)
+        Sigma2T  = sigma2_total(mu_true)
         Fk_over_f0 = T_true[1]
         fk = Fk_over_f0 * _F0
         pkl = T_true[0]; pkl_nw = TN_true[0]
@@ -559,7 +661,7 @@ def _pir_term(k, mu, nuis, T, TN, ap, q_perp, q_par):
         Fk_over_f0 = T[1]
         fk = Fk_over_f0 * _F0
         pkl = T[0]; pkl_nw = TN[0]
-        Sigma2T = sigma2_total(k, mu, TN)
+        Sigma2T = sigma2_total(k)
         e = np.exp(-k**2 * Sigma2T)
         return (( (nuis[0] + fk * mu**2)**2
                   * (pkl_nw + e*(pkl - pkl_nw)*(1 + k**2 * Sigma2T)) )
@@ -575,7 +677,7 @@ def _integrate_legendre(k, nuis, ap: bool, q_perp: float, q_par: float):
     (P0, P2, P4) : tuple of ndarrays
         Multipoles on the provided k grid.
     """
-    Nx = 8
+    Nx = 16
     xGL, wGL = roots_legendre(Nx)
     T, TN = _table_interp_bundle(k)
 
@@ -615,7 +717,7 @@ def rsd_multipoles(
     Omfid : float, optional
         Fiducial Om used for AP. Required if ap=True.
     tables : dict or (TW, TN, f0)
-        Output of `compute_multipoles(...)`. Required.
+        Output of `compute_tables(...)`. Required.
 
     Returns
     -------
@@ -641,7 +743,7 @@ def rsd_multipoles(
     return k, P0, P2, P4
 
 __all__ = [
-    "compute_multipoles",
+    "compute_tables",
     "rsd_multipoles",
     "hubble",
     "angular_diameter_distance",

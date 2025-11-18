@@ -11,7 +11,7 @@ Note: This package intentionally avoids creating or reading any on-disk tables.
 """
 
 from .rsd import (
-    compute_multipoles,
+    compute_tables,
     rsd_multipoles,
     hubble,
     angular_diameter_distance,
@@ -20,7 +20,7 @@ from .rsd import (
 )
 
 __all__ = [
-    "compute_multipoles",
+    "compute_tables",
     "rsd_multipoles",
     "hubble",
     "angular_diameter_distance",

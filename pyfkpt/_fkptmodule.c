@@ -60,9 +60,9 @@ static int is_1d_double(PyArrayObject *arr){
     return PyArray_NDIM(arr)==1 && PyArray_TYPE(arr)==NPY_DOUBLE;
 }
 
-/* Python API: compute_multipoles(...) */
-static PyObject* py_compute_multipoles(PyObject* self, PyObject* args, PyObject* kwargs){
-    P("ENTER compute_multipoles()\n");
+/* Python API: compute_tables(...) */
+static PyObject* py_compute_tables(PyObject* self, PyObject* args, PyObject* kwargs){
+    P("ENTER compute_tables()\n");
 
     static char *kwlist[] = {
         "k","pk","z","Om","h",
@@ -534,7 +534,13 @@ static PyObject* py_compute_multipoles(PyObject* self, PyObject* args, PyObject*
     /* Growth (W) */
     SAFE_PUT_VEC_SCALE("f_over_f0",  kFArrays.fkT, 1.0/gd.f0);
     SAFE_PUT_VEC_OR_ZERO("Fk",       kFArrays.fkT);
-    SAFE_PUT_CONST("f0_row",         gd.f0);
+    SAFE_PUT_CONST("f0_row",    gd.f0);
+
+    /* === Export velocity-dispersion IR damping (scalar) === */
+    SAFE_PUT_CONST("Sigma2",      gd.Sigma2);
+    SAFE_PUT_CONST("deltaSigma2", gd.deltaSigma2);
+    SAFE_PUT_CONST("sigma2v",     gd.sigma2v);
+    SAFE_PUT_CONST("sigma2v_nw",  gd.sigma2v);     // same in C
 
     #if FKPT_EXPOSES_KERNELS
     SAFE_PUT_VEC_OR_ZERO("I1udd_1",    kFArrays.I1udd1AT);
@@ -601,12 +607,12 @@ static PyObject* py_compute_multipoles(PyObject* self, PyObject* args, PyObject*
     Py_DECREF(ak);
     Py_DECREF(apk);
     if (fp) fclose(fp);
-    P("EXIT compute_multipoles() OK\n");
+    P("EXIT compute_tables() OK\n");
     return out;
 }
 
 static PyMethodDef Methods[] = {
-    {"compute_multipoles", (PyCFunction)py_compute_multipoles, METH_VARARGS | METH_KEYWORDS,
+    {"compute_tables", (PyCFunction)py_compute_tables, METH_VARARGS | METH_KEYWORDS,
      "Run fkpt on a (k, Pk) table and return k-grid and k-function blocks."},
     {NULL, NULL, 0, NULL}
 };

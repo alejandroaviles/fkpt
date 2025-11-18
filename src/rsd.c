@@ -162,7 +162,7 @@ global_rsdmultipoles pk_rsd_multipoles(int i, real b1, real b2,
 
 
 
-local real pk_EFT_IR(int i, real mu, real b1, real b2, real bs2, real b3nl, 
+real pk_EFT_IR(int i, real mu, real b1, real b2, real bs2, real b3nl, 
 			real alpha0, real alpha2, real alpha4, real ctilde, 
 			real PshotP, real alpha0shot, real alpha2shot)
 {

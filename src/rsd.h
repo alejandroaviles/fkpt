@@ -27,7 +27,7 @@ local real D_function(real f0, real mu, real I2uudd1D, real I2uudd2D,
 			real I4uuuu3D, real I4uuuu4D);
 			
 			
-local real pk_EFT_IR(int i, real mu, real b1, real b2, real bs2, real b3nl, 
+extern real pk_EFT_IR(int i, real mu, real b1, real b2, real bs2, real b3nl, 
 			real alpha0, real alpha2, real alpha4, real ctilde, 
 			real PshotP, real alpha0shot, real alpha2shot);		
 			
