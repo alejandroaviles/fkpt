@@ -121,15 +121,10 @@ def _precompute_tables_for_k(k1d, tables):
     # Interpolate tables W and NW on this k-grid
     T_np, TN_np = _table_interp_bundle(k1d)
 
-    # IMPORTANT: reproduce the original IR-damping behaviour:
-    # sigma2_total is called with "k" in _pir_term (buggy but matches emulator)
-    Sigma2T_np = sigma2_total(k1d)
-
     out = {
         "k": k1d.astype(float),          # (Nk,)
         "T": T_np.astype(float),         # (26, Nk)
         "TN": TN_np.astype(float),       # (26, Nk)
-        "Sigma2T": Sigma2T_np.astype(float),  # (Nk,)
         "F0": float(_F0),
     }
     return out
@@ -212,7 +207,7 @@ def _p_ef_t_jax(k, mu, nuis, table_vals, F0):
             + P_shot(mu, aS0, aS2, PshotP))
 
 
-def _pir_single_mu_jax(mu, k, nuis, T, TN, Sigma2T, F0):
+def _pir_single_mu_jax(mu, k, nuis, T, TN, F0):
     """
     JAX version of _pir_term(k, mu, nuis, T, TN, ap=False,...).
     k        : (Nk,)
@@ -227,6 +222,7 @@ def _pir_single_mu_jax(mu, k, nuis, T, TN, Sigma2T, F0):
     Fk_over_f0 = T[1]
     fk      = Fk_over_f0 * F0
 
+    Sigma2T = sigma2_total(mu)
     e = jnp.exp(-k**2 * Sigma2T)
 
     # dominant Kaiser + IR-resummed wiggle / no-wiggle mixing
@@ -243,7 +239,7 @@ def _pir_single_mu_jax(mu, k, nuis, T, TN, Sigma2T, F0):
 # vmap over mu: gives (Nmu, Nk)
 _pir_jax_mu = jax.vmap(
     _pir_single_mu_jax,
-    in_axes=(0, None, None, None, None, None, None)
+    in_axes=(0, None, None, None, None, None)
 )
 
 
@@ -320,13 +316,12 @@ def get_pkmu(k, mu, nuis, *, z, Om, ap=False, Omfid=None, tables=None):
     k_j       = jnp.asarray(tab["k"])           # (Nk,)
     T_j       = jnp.asarray(tab["T"])           # (26, Nk)
     TN_j      = jnp.asarray(tab["TN"])          # (26, Nk)
-    Sigma2T_j = jnp.asarray(tab["Sigma2T"])     # (Nk,)
     F0        = tab["F0"]
     nuis_j    = jnp.asarray(nuis)
     mu_j      = jnp.asarray(mu)                 # (Nmu,)
 
     # PIR for all μ: (Nmu, Nk)
-    pk_mu = _pir_jax_mu(mu_j, k_j, nuis_j, T_j, TN_j, Sigma2T_j, F0)
+    pk_mu = _pir_jax_mu(mu_j, k_j, nuis_j, T_j, TN_j, F0)
 
     # Return as (Nk, Nmu), like the old implementation
     return jnp.transpose(pk_mu, (1, 0))
@@ -661,7 +656,7 @@ def _pir_term(k, mu, nuis, T, TN, ap, q_perp, q_par):
         Fk_over_f0 = T[1]
         fk = Fk_over_f0 * _F0
         pkl = T[0]; pkl_nw = TN[0]
-        Sigma2T = sigma2_total(k)
+        Sigma2T = sigma2_total(mu)
         e = np.exp(-k**2 * Sigma2T)
         return (( (nuis[0] + fk * mu**2)**2
                   * (pkl_nw + e*(pkl - pkl_nw)*(1 + k**2 * Sigma2T)) )

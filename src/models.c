@@ -2228,9 +2228,9 @@ local real h5_HDKI(real eta) //Modify here
 static inline real a_from_eta(real eta) { return rexp(eta); }
 static inline real z_from_eta(real eta) { const real a = rexp(eta); return 1.0/a - 1.0; }
 
-/* Model 1: mu(a) = 1 + mu0 * Omega_DE(a)
+/* Model 1: mu(a) = 1 + mu0 * Omega_DE(a)/Omega_L
    You will provide Omega_DE(a) elsewhere. */
-real Omega_DE(real a)
+real Omega_DE_over_Omega_L(real a)
 {
     return 1.0 / (gd.ol + cmd.om * rpow(a, -3.0));
 }
@@ -2291,15 +2291,10 @@ static inline real mu_binning(real eta, real k)
 /* ---------- Key function for mu(a,k) ---------- */
 local real mu_HDKI(real eta, real k)
 {
-
-    //fprintf(stdout, "mg_variant seen by C: '%s' (len=%zu)\n",
-    //    cmd.mg_variant ? cmd.mg_variant : "(null)",
-    //    cmd.mg_variant ? strlen(cmd.mg_variant) : 0u);
-    //fflush(stdout);
     /* Variant switch: user selects via cmd.mg_variant */
     if (_is(cmd.mg_variant, "mu_OmDE")) {
         const real a = a_from_eta(eta);
-        return 1.0 + cmd.mu0 * Omega_DE(a);
+        return 1.0 + cmd.mu0 * Omega_DE_over_Omega_L(a);
     }
     if (_is(cmd.mg_variant, "BZ")) {
         return mu_BZ(eta, k);
@@ -2307,23 +2302,69 @@ local real mu_HDKI(real eta, real k)
     if (_is(cmd.mg_variant, "binning")) {
         return mu_binning(eta, k);
     }
+
+    /* ---- unknown variant => error ---- */
+    fprintf(stderr,
+        "ERROR: Unknown cmd.mg_variant='%s'. Allowed: mu_OmDE, BZ, binning.\n",
+        cmd.mg_variant ? cmd.mg_variant : "(null)");
+    fflush(stderr);
+    exit(EXIT_FAILURE);
     /* baseline Horndeski: μ = h1 * (1 + h5 k^2)/(1 + h3 k^2) */
-    const real k2 = k * k;
-    return h1_HDKI(eta) * (1.0 + h5_HDKI(eta) * k2) / (1.0 + h3_HDKI(eta) * k2);
+//    const real k2 = k * k;
+//    return h1_HDKI(eta) * (1.0 + h5_HDKI(eta) * k2) / (1.0 + h3_HDKI(eta) * k2);
 }
 /* ---------- Key function for mu(a,k) ---------- */
         
+//local real mass_HDKI(real eta)
+//{
+//    real masstmp;
+//    real small_;
+//    small_ = 1.0e-60;
+//    // small_ = 0.0;
+//    masstmp = sqrt(1/( h3_HDKI(eta) + small_)) / rexp(eta) ;
+//
+//    return (masstmp);
+//}
+
 local real mass_HDKI(real eta)
 {
+    const real small_ = 1.0e-60;
+    const real a = rexp(eta);
     real masstmp;
-    real small_;
-    small_ = 1.0e-60;
-    // small_ = 0.0;
-    masstmp = sqrt(1/( h3_HDKI(eta) + small_)) / rexp(eta) ;
 
-    return (masstmp);
+    /* guard */
+    if (a <= 0.0) return 1.0e30;
+
+    /* ------------------------------------------------------------
+       HDKI variants (match your Python mass() logic)
+       ------------------------------------------------------------ */
+
+    /* mu_OmDE: "GR-like" in the Yukawa piece -> effectively infinite mass */
+    if (_is(cmd.mg_variant, "mu_OmDE")) {
+        return rsqrt(small_) / a;
+    }
+
+    /* BZ: h3 = lambda_1^2 * a^exp_s  and  m = sqrt(1/(h3+small))/a */
+    if (_is(cmd.mg_variant, "BZ")) {
+        const real h3 = (cmd.lambda_1 * cmd.lambda_1) * rpow(a, cmd.exp_s);
+        return rsqrt(h3 + small_) / a;
+    }
+
+    /* binning: m = k_c / a */
+    if (_is(cmd.mg_variant, "binning")) {
+        return cmd.k_c / a;
+    }
+
+    fprintf(stderr,
+        "ERROR: Unknown cmd.mg_variant='%s'. Allowed: mu_OmDE, BZ, binning.\n",
+        cmd.mg_variant ? cmd.mg_variant : "(null)");
+    fflush(stderr);
+    exit(EXIT_FAILURE);
+
+    /* baseline Horndeski (or any other variant using h3_HDKI): old behavior */
+    //return rsqrt(h3_HDKI(eta) + small_) / a;
 }
-    
+
 local real PiF_HDKI(real eta, real k)
 {
     real PiFtmp;
@@ -2342,10 +2383,11 @@ local real M2_HDKI(real eta)
 {
     real M2tmp;
 
-    M2tmp = cmd.screening;
-    M2tmp *= (9.0/(4.0*rsqr(invH0)))*rsqr(1.0/rabs(cmd.fR0))
-    * rpow(cmd.om*rexp(-3.0*eta)+4.0*(gd.ol),5.0)
-    / rpow(cmd.om+4*(gd.ol),4.0);
+    // M2tmp = cmd.screening;
+    // M2tmp *= (9.0/(4.0*rsqr(invH0)))*rsqr(1.0/rabs(cmd.fR0))
+    // * rpow(cmd.om*rexp(-3.0*eta)+4.0*(gd.ol),5.0)
+    // / rpow(cmd.om+4*(gd.ol),4.0);
+    M2tmp = 0.0;
     
     return (M2tmp);
 }
@@ -2432,10 +2474,11 @@ local real M3_HDKI(real eta)
 {
     real M3tmp;
 
-    M3tmp = cmd.screening;
-    M3tmp *= (45.0/(8.0*rsqr(invH0)))*rpow(1.0/rabs(cmd.fR0),3.0)
-    * rpow(cmd.om*rexp(-3.0*eta)+4.0*(gd.ol),7.0)
-    / rpow(cmd.om+4*(gd.ol),6.0);
+    //M3tmp = cmd.screening;
+    //M3tmp *= (45.0/(8.0*rsqr(invH0)))*rpow(1.0/rabs(cmd.fR0),3.0)
+    //* rpow(cmd.om*rexp(-3.0*eta)+4.0*(gd.ol),7.0)
+    /// rpow(cmd.om+4*(gd.ol),6.0);
+    M3tmp = 0.0;
     
     return (M3tmp);
 }
