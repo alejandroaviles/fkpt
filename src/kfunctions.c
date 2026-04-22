@@ -28,7 +28,7 @@ local real sigma2v_function_int(real y);
 local real sigma_constants(void);
 
 #define KMIN    1.0e-20
-#define _KERNELS_LCDMfk_ 0
+#define _KERNELS_LCDMfk_ 1
 
 global void compute_kfunctions(void)
 {
